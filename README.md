@@ -1,6 +1,10 @@
 # dragon-nuke
 remotely nuke all block storage devices using a gcp object storage listener that can be written to by a phone
 
+## gcp configuration
+
+- object storage: 1 file
+- starts off as the string "safe"
 
 ## phone app "DragonNukeApp"
 
