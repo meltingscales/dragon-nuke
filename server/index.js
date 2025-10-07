@@ -132,9 +132,6 @@ class DragonRebootServer {
   async executeReboot() {
     await this.logMessage('🔥 REBOOT TRIGGER DETECTED! Starting reboot sequence...', 'WARN');
     
-    // Reset the trigger file first to prevent multiple reboots
-    await this.resetTriggerFile();
-    
     // Execute the reboot script
     const scriptPath = path.join(__dirname, '..', 'scripts', 'reboot.sh');
     await this.logMessage(`Executing reboot script: ${scriptPath}`, 'INFO');
@@ -169,7 +166,15 @@ class DragonRebootServer {
   }
 
   async start() {
+    // Check if running as root
+    if (process.getuid && process.getuid() !== 0) {
+      console.error('❌ ERROR: DragonRebootServer must be run as root (use sudo)');
+      console.error('   This is required to execute system reboot commands.');
+      process.exit(1);
+    }
+    
     await this.logMessage('🐉 DragonRebootServer starting...', 'INFO');
+    await this.logMessage(`Running as UID: ${process.getuid ? process.getuid() : 'unknown'}`, 'INFO');
     await this.logMessage(`Monitoring bucket: ${this.bucketName}`, 'INFO');
     await this.logMessage(`Monitoring file: ${this.fileName}`, 'INFO');
     await this.logMessage(`Poll interval: ${this.pollInterval / 1000} seconds`, 'INFO');

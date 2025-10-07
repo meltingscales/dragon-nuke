@@ -14,9 +14,14 @@ install:
 dev:
     npm run dev
 
-# Start the server
+# Start the server (requires root for reboot functionality)
 start:
+    @echo "⚠️  Starting server as current user. Reboot functionality requires root."
     npm start
+
+# Start the server as root (recommended for production)
+start-root:
+    sudo npm start
 
 # Start the phone app
 app:
@@ -102,18 +107,15 @@ test-gcp:
 
 # Initialize GCP bucket with safe state
 init-gcp:
-    echo "safe" | gsutil cp - gs://$(grep GCP_BUCKET_NAME .env | cut -d= -f2)/$(grep GCP_FILE_NAME .env | cut -d= -f2)
+    echo "safe" | gsutil cp - gs://dragon-reboot-bucket/reboot-trigger.txt
 
 # Check GCP file content
 check-gcp:
-    gsutil cat gs://$(grep GCP_BUCKET_NAME .env | cut -d= -f2)/$(grep GCP_FILE_NAME .env | cut -d= -f2)
+    gsutil cat gs://dragon-reboot-bucket/reboot-trigger.txt
 
 # Trigger reboot (DANGEROUS - will actually reboot!)
 trigger-reboot:
-    @echo "⚠️  WARNING: This will trigger an actual reboot!"
-    @echo "Type 'YES' to confirm:"
-    @read confirm && [ "$$confirm" = "YES" ] || exit 1
-    echo "REBOOT=TRUE" | gsutil cp - gs://$(grep GCP_BUCKET_NAME .env | cut -d= -f2)/$(grep GCP_FILE_NAME .env | cut -d= -f2)
+    ./scripts/trigger-reboot.sh
 
 # Configuration
 
@@ -126,8 +128,8 @@ init-config:
 check-config:
     @echo "🔍 Checking configuration..."
     @test -f .env || (echo "❌ .env file missing. Run 'just init-config'" && exit 1)
-    @source .env && test -n "$$GOOGLE_CLOUD_PROJECT_ID" || (echo "❌ GOOGLE_CLOUD_PROJECT_ID not set" && exit 1)
-    @source .env && test -n "$$GCP_BUCKET_NAME" || (echo "❌ GCP_BUCKET_NAME not set" && exit 1)
+    @source .env && test "$$GOOGLE_CLOUD_PROJECT_ID" = "dragon-nuke" || (echo "❌ GOOGLE_CLOUD_PROJECT_ID should be 'dragon-nuke'" && exit 1)
+    @source .env && test "$$GCP_BUCKET_NAME" = "dragon-reboot-bucket" || (echo "❌ GCP_BUCKET_NAME should be 'dragon-reboot-bucket'" && exit 1)
     @source .env && test -f "$$GOOGLE_APPLICATION_CREDENTIALS" || (echo "❌ Service account key file not found" && exit 1)
     @echo "✅ Configuration looks good!"
 
@@ -152,7 +154,12 @@ clean:
 
 # Run in debug mode with verbose logging
 debug:
+    @echo "⚠️  Running debug mode as current user. Reboot functionality requires root."
     VERBOSE_LOGGING=true npm start
+
+# Run in debug mode as root
+debug-root:
+    sudo VERBOSE_LOGGING=true npm start
 
 # Test reboot script (dry run - won't actually reboot)
 test-reboot:
@@ -196,7 +203,7 @@ emergency-stop:
 # Reset GCP trigger to safe state
 emergency-safe:
     @echo "🛡️  Resetting GCP trigger to safe state"
-    echo "safe" | gsutil cp - gs://$(grep GCP_BUCKET_NAME .env | cut -d= -f2)/$(grep GCP_FILE_NAME .env | cut -d= -f2)
+    echo "safe" | gsutil cp - gs://dragon-reboot-bucket/reboot-trigger.txt
 
 # Show help
 help:

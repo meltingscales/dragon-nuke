@@ -32,11 +32,11 @@ gcloud iam service-accounts create dragon-reboot-service \
 
 # Create and download key
 gcloud iam service-accounts keys create ~/dragon-reboot-key.json \
-    --iam-account=dragon-reboot-service@YOUR_PROJECT_ID.iam.gserviceaccount.com
+    --iam-account=dragon-reboot-service@dragon-nuke.iam.gserviceaccount.com
 
 # Grant storage permissions
-gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
-    --member="serviceAccount:dragon-reboot-service@YOUR_PROJECT_ID.iam.gserviceaccount.com" \
+gcloud projects add-iam-policy-binding dragon-nuke \
+    --member="serviceAccount:dragon-reboot-service@dragon-nuke.iam.gserviceaccount.com" \
     --role="roles/storage.objectAdmin"
 ```
 
@@ -56,7 +56,7 @@ cp .env.example .env
 
 2. Edit `.env` with your values:
 ```env
-GOOGLE_CLOUD_PROJECT_ID=your-project-id
+GOOGLE_CLOUD_PROJECT_ID=dragon-nuke
 GOOGLE_APPLICATION_CREDENTIALS=/absolute/path/to/dragon-reboot-key.json
 GCP_BUCKET_NAME=dragon-reboot-bucket
 GCP_FILE_NAME=reboot-trigger.txt
