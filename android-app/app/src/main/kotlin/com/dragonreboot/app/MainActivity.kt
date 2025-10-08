@@ -4,6 +4,8 @@ import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.util.Base64
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -17,6 +19,9 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 import java.io.IOException
+import java.security.KeyFactory
+import java.security.Signature
+import java.security.spec.PKCS8EncodedKeySpec
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -27,6 +32,7 @@ class MainActivity : AppCompatActivity() {
     private val client = OkHttpClient()
 
     companion object {
+        private const val TAG = "DragonReboot"
         private const val PREFS_NAME = "dragon_reboot_prefs"
         private const val KEY_SERVICE_ACCOUNT = "service_account_json"
     }
@@ -194,21 +200,135 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private suspend fun getAccessToken(): String? = withContext(Dispatchers.IO) {
+        try {
+            val serviceAccount = serviceAccountJson ?: return@withContext null
+
+            val clientEmail = serviceAccount.getString("client_email")
+            val privateKeyPem = serviceAccount.getString("private_key")
+                .replace("-----BEGIN PRIVATE KEY-----", "")
+                .replace("-----END PRIVATE KEY-----", "")
+                .replace("\\n", "")
+                .replace("\n", "")
+                .trim()
+
+            // Create JWT
+            val now = System.currentTimeMillis() / 1000
+            val exp = now + 3600
+
+            val header = JSONObject().apply {
+                put("alg", "RS256")
+                put("typ", "JWT")
+            }
+
+            val payload = JSONObject().apply {
+                put("iss", clientEmail)
+                put("scope", "https://www.googleapis.com/auth/devstorage.read_write")
+                put("aud", "https://oauth2.googleapis.com/token")
+                put("exp", exp)
+                put("iat", now)
+            }
+
+            val headerEncoded = Base64.encodeToString(
+                header.toString().toByteArray(),
+                Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING
+            )
+            val payloadEncoded = Base64.encodeToString(
+                payload.toString().toByteArray(),
+                Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING
+            )
+
+            val signatureInput = "$headerEncoded.$payloadEncoded"
+
+            // Sign with private key
+            val keyBytes = Base64.decode(privateKeyPem, Base64.DEFAULT)
+            val keySpec = PKCS8EncodedKeySpec(keyBytes)
+            val keyFactory = KeyFactory.getInstance("RSA")
+            val privateKey = keyFactory.generatePrivate(keySpec)
+
+            val signature = Signature.getInstance("SHA256withRSA")
+            signature.initSign(privateKey)
+            signature.update(signatureInput.toByteArray())
+            val signatureBytes = signature.sign()
+
+            val signatureEncoded = Base64.encodeToString(
+                signatureBytes,
+                Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING
+            )
+
+            val jwt = "$signatureInput.$signatureEncoded"
+
+            Log.d(TAG, "Generated JWT, requesting access token...")
+
+            // Exchange JWT for access token
+            val tokenRequestBody = FormBody.Builder()
+                .add("grant_type", "urn:ietf:params:oauth:grant-type:jwt-bearer")
+                .add("assertion", jwt)
+                .build()
+
+            val tokenRequest = Request.Builder()
+                .url("https://oauth2.googleapis.com/token")
+                .post(tokenRequestBody)
+                .build()
+
+            val tokenResponse = client.newCall(tokenRequest).execute()
+            val tokenResponseBody = tokenResponse.body?.string()
+
+            Log.d(TAG, "Token response code: ${tokenResponse.code}")
+            Log.d(TAG, "Token response: $tokenResponseBody")
+
+            if (tokenResponse.isSuccessful && tokenResponseBody != null) {
+                val tokenJson = JSONObject(tokenResponseBody)
+                tokenJson.getString("access_token")
+            } else {
+                Log.e(TAG, "Failed to get access token: $tokenResponseBody")
+                null
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting access token", e)
+            null
+        }
+    }
+
     private suspend fun uploadRebootTrigger(): Boolean = withContext(Dispatchers.IO) {
         try {
-            // Try direct upload to GCP Storage (requires public write access)
+            val accessToken = getAccessToken()
+            if (accessToken == null) {
+                Log.e(TAG, "Failed to obtain access token")
+                return@withContext false
+            }
+
+            Log.d(TAG, "Got access token, uploading file...")
+
             val url = "https://$bucketName.storage.googleapis.com/reboot-trigger.txt"
-            
+
+            Log.d(TAG, "Attempting to upload reboot trigger to: $url")
+
             val requestBody = "REBOOT=TRUE".toRequestBody("text/plain".toMediaType())
-            
+
             val request = Request.Builder()
                 .url(url)
                 .put(requestBody)
+                .header("Authorization", "Bearer $accessToken")
                 .build()
 
             val response = client.newCall(request).execute()
+            val responseBody = response.body?.string()
+
+            Log.d(TAG, "Upload response code: ${response.code}")
+            Log.d(TAG, "Upload response message: ${response.message}")
+            Log.d(TAG, "Upload response body: $responseBody")
+
+            if (!response.isSuccessful) {
+                Log.e(TAG, "Upload failed with code ${response.code}: $responseBody")
+            }
+
             response.isSuccessful
         } catch (e: IOException) {
+            Log.e(TAG, "IOException during upload", e)
+            false
+        } catch (e: Exception) {
+            Log.e(TAG, "Unexpected error during upload", e)
             false
         }
     }
