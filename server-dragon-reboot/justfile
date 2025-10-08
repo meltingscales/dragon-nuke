@@ -27,7 +27,7 @@ start-root:
 
 # Create .env file from example
 init-config:
-    cp ../.env.example .env
+    cp .env.example .env
     @echo "✅ Created .env file. Please edit it with your GCP settings."
 
 # Validate configuration
@@ -43,7 +43,7 @@ check-config:
 
 # Test GCP connection
 test-gcp:
-    ../scripts/monitor.sh test-gcp
+    ./scripts/monitor.sh test-gcp
 
 # Initialize GCP bucket with safe state
 init-gcp:
@@ -55,7 +55,12 @@ check-gcp:
 
 # Trigger reboot (DANGEROUS - will actually reboot!)
 trigger-reboot:
-    ../scripts/trigger-reboot.sh
+    ./scripts/trigger-reboot.sh
+
+# Reset GCP trigger to safe state (emergency command)
+emergency-safe:
+    @echo "🛡️  Resetting GCP trigger to safe state"
+    echo "safe" | gsutil cp - gs://dragon-reboot-bucket/reboot-trigger.txt
 
 # Development & Testing
 
