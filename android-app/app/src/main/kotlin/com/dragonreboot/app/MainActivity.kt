@@ -26,6 +26,11 @@ class MainActivity : AppCompatActivity() {
     private val bucketName = "dragon-reboot-bucket"
     private val client = OkHttpClient()
 
+    companion object {
+        private const val PREFS_NAME = "dragon_reboot_prefs"
+        private const val KEY_SERVICE_ACCOUNT = "service_account_json"
+    }
+
     private val filePickerLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -41,8 +46,25 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        loadSavedServiceAccount()
         setupClickListeners()
         updateUI()
+    }
+
+    private fun loadSavedServiceAccount() {
+        val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+        val savedJson = prefs.getString(KEY_SERVICE_ACCOUNT, null)
+
+        if (savedJson != null) {
+            try {
+                serviceAccountJson = JSONObject(savedJson)
+                val clientEmail = serviceAccountJson?.optString("client_email", "Unknown")
+                Toast.makeText(this, "Restored saved key: $clientEmail", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                // If saved JSON is corrupted, clear it
+                prefs.edit().remove(KEY_SERVICE_ACCOUNT).apply()
+            }
+        }
     }
 
     private fun setupClickListeners() {
@@ -67,18 +89,25 @@ class MainActivity : AppCompatActivity() {
         try {
             val inputStream = contentResolver.openInputStream(uri)
             val jsonString = inputStream?.bufferedReader()?.use { it.readText() }
-            
+
             if (jsonString != null) {
                 serviceAccountJson = JSONObject(jsonString)
                 val clientEmail = serviceAccountJson?.optString("client_email", "Unknown")
-                
+
                 // Validate it's a service account key
                 if (serviceAccountJson?.optString("type") == "service_account" &&
                     serviceAccountJson?.has("private_key") == true &&
                     serviceAccountJson?.has("client_email") == true) {
-                    
+
+                    // Save to SharedPreferences
+                    val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                    prefs.edit().putString(KEY_SERVICE_ACCOUNT, jsonString).apply()
+
                     Toast.makeText(this, "Service account loaded: $clientEmail", Toast.LENGTH_LONG).show()
                     updateUI()
+
+                    // Test connection immediately
+                    testConnection()
                 } else {
                     Toast.makeText(this, "Invalid service account key file", Toast.LENGTH_LONG).show()
                     serviceAccountJson = null
@@ -87,6 +116,47 @@ class MainActivity : AppCompatActivity() {
         } catch (e: Exception) {
             Toast.makeText(this, "Error loading file: ${e.message}", Toast.LENGTH_LONG).show()
             serviceAccountJson = null
+        }
+    }
+
+    private fun testConnection() {
+        lifecycleScope.launch {
+            try {
+                val connectionWorks = withContext(Dispatchers.IO) {
+                    try {
+                        val url = "https://$bucketName.storage.googleapis.com/"
+                        val request = Request.Builder()
+                            .url(url)
+                            .head()
+                            .build()
+
+                        val response = client.newCall(request).execute()
+                        response.isSuccessful || response.code == 403 // 403 means bucket exists but no read access
+                    } catch (e: IOException) {
+                        false
+                    }
+                }
+
+                if (!connectionWorks) {
+                    Toast.makeText(
+                        this@MainActivity,
+                        "⚠️ Warning: Cannot connect to GCP bucket. Check network connection.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                } else {
+                    Toast.makeText(
+                        this@MainActivity,
+                        "✅ GCP storage connection succeeded",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            } catch (e: Exception) {
+                Toast.makeText(
+                    this@MainActivity,
+                    "⚠️ Warning: Connection test failed: ${e.message}",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
         }
     }
 
