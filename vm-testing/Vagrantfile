@@ -1,0 +1,109 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure("2") do |config|
+  # Define 8 VMs
+  (1..8).each do |i|
+    config.vm.define "dragon-vm-#{i}" do |node|
+      # Ubuntu 22.04 base box (jammy)
+      node.vm.box = "ubuntu/jammy64"
+
+      node.vm.hostname = "dragon-vm-#{i}"
+
+      # VirtualBox provider settings
+      node.vm.provider "virtualbox" do |vb|
+        vb.name = "dragon-vm-#{i}"
+        vb.memory = "1024"  # 1GB RAM
+        vb.cpus = 1
+      end
+
+      # Mount dragon-reboot-key.json as read-only
+      node.vm.synced_folder File.expand_path("~/keys"),
+                           "/vagrant/keys",
+                           mount_options: ["ro"],
+                           owner: "vagrant",
+                           group: "vagrant"
+
+      # Mount server-dragon-reboot directory (writable copy needed for node_modules)
+      node.vm.synced_folder File.expand_path("../server-dragon-reboot"),
+                           "/vagrant/server-dragon-reboot-ro",
+                           mount_options: ["ro"],
+                           owner: "vagrant",
+                           group: "vagrant"
+
+      # Mount .env file as read-only
+      node.vm.provision "file", source: File.expand_path("../server-dragon-reboot/.env"),
+                                destination: "/tmp/.env.ro"
+
+      # Provisioning script
+      node.vm.provision "shell", inline: <<-SHELL
+        echo "Dragon VM #{i} provisioning..."
+
+        # Install dependencies
+        echo "Installing dependencies..."
+        export DEBIAN_FRONTEND=noninteractive
+        apt-get update
+        apt-get install -y curl rsync
+
+        # Install Node.js if not present
+        if ! command -v node &> /dev/null; then
+          echo "Installing Node.js..."
+          curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+          apt-get install -y nodejs
+        fi
+
+        # Install just if not present
+        if ! command -v just &> /dev/null; then
+          echo "Installing just..."
+          curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --to /usr/local/bin
+        fi
+
+        # Copy server code to writable location
+        mkdir -p /home/vagrant/server-dragon-reboot
+        rsync -av --exclude='node_modules' /vagrant/server-dragon-reboot-ro/ /home/vagrant/server-dragon-reboot/
+        chown -R vagrant:vagrant /home/vagrant/server-dragon-reboot
+
+        # Setup server as vagrant user
+        cd /home/vagrant/server-dragon-reboot
+        sudo -u vagrant npm install
+
+        # Copy read-only .env file and fix the credentials path
+        cp /tmp/.env.ro .env
+        sed -i 's|GOOGLE_APPLICATION_CREDENTIALS=.*|GOOGLE_APPLICATION_CREDENTIALS=/vagrant/keys/dragon-reboot-key.json|' .env
+        chown vagrant:vagrant .env
+        chmod 444 .env
+
+        # Kill any existing dragon-reboot processes
+        if [ -f /var/run/dragon-reboot.pid ]; then
+          OLD_PID=$(cat /var/run/dragon-reboot.pid)
+          if ps -p $OLD_PID > /dev/null 2>&1; then
+            echo "Killing old server process (PID: $OLD_PID)..."
+            kill $OLD_PID
+            sleep 2
+          fi
+        fi
+
+        # Start server as root in background
+        echo "Starting dragon-reboot server as root..."
+        nohup node index.js > /var/log/dragon-reboot-server.log 2>&1 &
+        echo $! > /var/run/dragon-reboot.pid
+
+        # Health check - wait 5 seconds and verify server is running
+        echo "Waiting 5 seconds for server to start..."
+        sleep 5
+        if ps -p $(cat /var/run/dragon-reboot.pid) > /dev/null 2>&1; then
+          echo "✓ Server is running with PID: $(cat /var/run/dragon-reboot.pid)"
+        else
+          echo "✗ Server failed to start. Check logs:"
+          tail -20 /var/log/dragon-reboot-server.log
+          exit 1
+        fi
+
+        echo "Dragon VM #{i} provisioned successfully"
+        echo "Keys mounted at: /vagrant/keys/"
+        echo "Server code at: /home/vagrant/server-dragon-reboot/"
+        ls -la /vagrant/keys/
+      SHELL
+    end
+  end
+end

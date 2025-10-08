@@ -1,0 +1,69 @@
+# VM Testing Justfile for Dragon Reboot
+
+# Show available commands
+default:
+    @just --list
+
+# Start all 8 VMs
+up:
+    vagrant up
+
+# Start a specific VM (e.g., just start 1)
+start n:
+    vagrant up dragon-vm-{{n}}
+
+# Stop all VMs
+halt:
+    vagrant halt
+
+# Stop a specific VM
+stop n:
+    vagrant halt dragon-vm-{{n}}
+
+# Destroy all VMs
+destroy:
+    vagrant destroy -f
+
+# Destroy a specific VM
+destroy-one n:
+    vagrant destroy -f dragon-vm-{{n}}
+
+# Show status of all VMs
+status:
+    vagrant status
+
+# SSH into a specific VM (e.g., just ssh 1)
+ssh n:
+    vagrant ssh dragon-vm-{{n}}
+
+# Reload all VMs (restart with new config)
+reload:
+    vagrant reload
+
+# Reload a specific VM
+reload-one n:
+    vagrant reload dragon-vm-{{n}}
+
+# Provision all VMs
+provision:
+    vagrant provision
+
+# Provision a specific VM
+provision-one n:
+    vagrant provision dragon-vm-{{n}}
+
+# Start all VMs in parallel (faster)
+up-parallel:
+    vagrant up --parallel
+
+# Show global VM status
+global-status:
+    vagrant global-status
+
+# Suspend all VMs (save state)
+suspend:
+    vagrant suspend
+
+# Resume all VMs
+resume:
+    vagrant resume
