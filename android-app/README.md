@@ -12,8 +12,27 @@ Native Android app to trigger server reboots via GCP Storage.
 ## Building
 
 ### Prerequisites
-- Android SDK
-- Gradle
+- Android SDK (API 33+)
+- JDK 11 or newer
+
+### Setup
+
+1. **Install Android SDK** (if not already installed):
+   ```bash
+   # Ubuntu/Debian
+   sudo apt install android-sdk
+
+   # Or download from: https://developer.android.com/studio
+   ```
+
+2. **Configure SDK path**:
+   ```bash
+   # Interactive setup
+   just setup-sdk
+
+   # Or manually create local.properties:
+   echo "sdk.dir=/path/to/android-sdk" > local.properties
+   ```
 
 ### Build Commands
 

@@ -3,6 +3,12 @@
 default:
     @just --list
 
+# Setup Android SDK path (run this first if you get SDK errors)
+setup-sdk:
+    @echo "Enter your Android SDK path (e.g., ~/Android/Sdk or /usr/lib/android-sdk):"
+    @read -p "SDK path: " SDK_PATH && echo "sdk.dir=$$SDK_PATH" > local.properties
+    @echo "✅ Created local.properties with SDK path"
+
 # Build debug APK
 build:
     ./gradlew assembleDebug

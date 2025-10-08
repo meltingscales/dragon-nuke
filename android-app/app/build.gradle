@@ -42,7 +42,4 @@ dependencies {
     
     // HTTP client
     implementation 'com.squareup.okhttp3:okhttp:4.11.0'
-    
-    // File picker
-    implementation 'androidx.activity:activity-result:1.2.0'
 }
