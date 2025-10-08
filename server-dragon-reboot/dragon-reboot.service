@@ -1,0 +1,32 @@
+[Unit]
+Description=DragonReboot Server - Remote reboot listener
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=10
+User=root
+ExecStart=/usr/bin/node /opt/dragon-reboot/server-dragon-reboot/index.js
+WorkingDirectory=/opt/dragon-reboot/server-dragon-reboot
+Environment=NODE_ENV=production
+EnvironmentFile=/opt/dragon-reboot/server-dragon-reboot/.env
+
+# Security settings
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/log
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=dragon-reboot
+
+[Install]
+WantedBy=multi-user.target

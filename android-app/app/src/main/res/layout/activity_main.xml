@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="24dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center_horizontal">
+
+        <!-- Title -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="🐉 Dragon Reboot"
+            android:textSize="32sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="8dp"
+            android:textColor="@android:color/black" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Emergency Server Reboot Trigger"
+            android:textSize="16sp"
+            android:layout_marginBottom="40dp"
+            android:textColor="@android:color/darker_gray" />
+
+        <!-- Service Account Section -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Service Account Key"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="12dp"
+            android:textColor="@android:color/black" />
+
+        <Button
+            android:id="@+id/btnLoadKey"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:text="📁 Load Service Account Key"
+            android:layout_marginBottom="12dp"
+            style="@style/Widget.Material3.Button" />
+
+        <TextView
+            android:id="@+id/tvKeyStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="No service account key loaded"
+            android:textSize="14sp"
+            android:gravity="center"
+            android:layout_marginBottom="32dp"
+            android:textColor="@android:color/darker_gray"
+            android:fontFamily="monospace" />
+
+        <!-- Bucket Configuration -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Bucket Configuration"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="12dp"
+            android:textColor="@android:color/black" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="dragon-reboot-bucket"
+            android:textSize="16sp"
+            android:gravity="center"
+            android:layout_marginBottom="32dp"
+            android:padding="12dp"
+            android:background="@drawable/bucket_background"
+            android:fontFamily="monospace" />
+
+        <!-- Trigger Button -->
+        <Button
+            android:id="@+id/btnTriggerReboot"
+            android:layout_width="match_parent"
+            android:layout_height="72dp"
+            android:text="🔥 TRIGGER REBOOT"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="24dp"
+            android:backgroundTint="@android:color/holo_red_dark"
+            android:textColor="@android:color/white"
+            android:enabled="false" />
+
+        <!-- Last Trigger Info -->
+        <TextView
+            android:id="@+id/tvLastTrigger"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textSize="14sp"
+            android:gravity="center"
+            android:layout_marginBottom="24dp"
+            android:textColor="@android:color/darker_gray"
+            android:fontStyle="italic" />
+
+        <!-- Warning -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/warning_background"
+            android:padding="16dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="⚠️ WARNING"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:gravity="center"
+                android:layout_marginBottom="8dp"
+                android:textColor="@android:color/black" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="This will reboot ALL servers monitoring the bucket"
+                android:textSize="14sp"
+                android:gravity="center"
+                android:textColor="@android:color/black" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+</ScrollView>

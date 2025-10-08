@@ -1,0 +1,20 @@
+{
+  "name": "dragon-reboot-server",
+  "version": "1.0.0",
+  "description": "Dragon Reboot server - monitors GCP storage for reboot triggers",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "dependencies": {
+    "@google-cloud/storage": "^7.7.0",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  },
+  "keywords": ["reboot", "gcp", "remote", "server"],
+  "author": "",
+  "license": "MIT"
+}

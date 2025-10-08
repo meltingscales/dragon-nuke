@@ -1,0 +1,44 @@
+# Dragon Reboot Android App - Just Commands
+
+default:
+    @just --list
+
+# Build debug APK
+build:
+    ./gradlew assembleDebug
+
+# Build release APK
+build-release:
+    ./gradlew assembleRelease
+
+# Clean build
+clean:
+    ./gradlew clean
+
+# Install debug APK to connected device
+install:
+    ./gradlew installDebug
+
+# Build and install debug
+dev: build install
+
+# Run lint checks
+lint:
+    ./gradlew lint
+
+# Run tests
+test:
+    ./gradlew test
+
+# Generate signing key for release
+generate-key:
+    keytool -genkey -v -keystore dragon-reboot.keystore -alias dragon-reboot -keyalg RSA -keysize 2048 -validity 10000
+
+# Build signed release APK (requires keystore)
+build-signed:
+    ./gradlew assembleRelease
+
+# Show APK location after build
+show-apk:
+    @echo "Debug APK: app/build/outputs/apk/debug/app-debug.apk"
+    @echo "Release APK: app/build/outputs/apk/release/app-release.apk"
