@@ -1,4 +1,4 @@
-# DragonReboot Server - Just Commands
+# DragonNuke Server - Just Commands
 # Run `just` to see all available commands
 
 default:
@@ -14,9 +14,9 @@ install:
 dev:
     npm run dev
 
-# Start the server (requires root for reboot functionality)
+# Start the server (requires root for remote wipe functionality)
 start:
-    @echo "⚠️  Starting server as current user. Reboot functionality requires root."
+    @echo "⚠️  Starting server as current user. Remote wipe functionality requires root."
     node index.js
 
 # Start the server as root (recommended for production)
@@ -35,7 +35,7 @@ check-config:
     @echo "🔍 Checking configuration..."
     @test -f .env || (echo "❌ .env file missing. Run 'just init-config'" && exit 1)
     @source .env && test "$$GOOGLE_CLOUD_PROJECT_ID" = "dragon-nuke" || (echo "❌ GOOGLE_CLOUD_PROJECT_ID should be 'dragon-nuke'" && exit 1)
-    @source .env && test "$$GCP_BUCKET_NAME" = "dragon-reboot-bucket" || (echo "❌ GCP_BUCKET_NAME should be 'dragon-reboot-bucket'" && exit 1)
+    @source .env && test "$$GCP_BUCKET_NAME" = "dragon-nuke-bucket" || (echo "❌ GCP_BUCKET_NAME should be 'dragon-nuke-bucket'" && exit 1)
     @source .env && test -f "$$GOOGLE_APPLICATION_CREDENTIALS" || (echo "❌ Service account key file not found" && exit 1)
     @echo "✅ Configuration looks good!"
 
@@ -47,26 +47,26 @@ test-gcp:
 
 # Initialize GCP bucket with safe state
 init-gcp:
-    echo "safe" | gsutil cp - gs://dragon-reboot-bucket/reboot-trigger.txt
+    echo "safe" | gsutil cp - gs://dragon-nuke-bucket/nuke-trigger.txt
 
 # Check GCP file content
 check-gcp:
-    gsutil cat gs://dragon-reboot-bucket/reboot-trigger.txt
+    gsutil cat gs://dragon-nuke-bucket/nuke-trigger.txt
 
-# Trigger reboot (DANGEROUS - will actually reboot!)
-trigger-reboot:
-    ./scripts/trigger-reboot.sh
+# Trigger nuke (DANGEROUS - will actually nuke!)
+trigger-nuke:
+    ./scripts/trigger-nuke.sh
 
 # Reset GCP trigger to safe state (emergency command)
 emergency-safe:
     @echo "🛡️  Resetting GCP trigger to safe state"
-    echo "safe" | gsutil cp - gs://dragon-reboot-bucket/reboot-trigger.txt
+    echo "safe" | gsutil cp - gs://dragon-nuke-bucket/nuke-trigger.txt
 
 # Development & Testing
 
 # Run in debug mode with verbose logging
 debug:
-    @echo "⚠️  Running debug mode as current user. Reboot functionality requires root."
+    @echo "⚠️  Running debug mode as current user. Remote wipe functionality requires root."
     VERBOSE_LOGGING=true node index.js
 
 # Run in debug mode as root
@@ -81,11 +81,11 @@ update:
 # Clean up temporary files
 clean:
     rm -rf node_modules/.cache
-    rm -rf /tmp/dragon-reboot-*
+    rm -rf /tmp/dragon-nuke-*
 
 # Quick Setup
 setup: install init-config
-    @echo "🚀 Dragon Reboot server setup complete!"
+    @echo "🚀 Dragon Nuke server setup complete!"
     @echo "Next steps:"
     @echo "1. Edit .env with your GCP settings"
     @echo "2. Run 'just start-root' to start the server"

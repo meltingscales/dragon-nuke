@@ -1,4 +1,4 @@
-package com.dragonreboot.app
+package com.dragonnuke.app
 
 import android.app.Activity
 import android.content.Intent
@@ -10,7 +10,7 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
-import com.dragonreboot.app.databinding.ActivityMainBinding
+import com.dragonnuke.app.databinding.ActivityMainBinding
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -28,12 +28,12 @@ import java.util.*
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private var serviceAccountJson: JSONObject? = null
-    private val bucketName = "dragon-reboot-bucket"
+    private val bucketName = "dragon-nuke-bucket"
     private val client = OkHttpClient()
 
     companion object {
-        private const val TAG = "DragonReboot"
-        private const val PREFS_NAME = "dragon_reboot_prefs"
+        private const val TAG = "DragonNuke"
+        private const val PREFS_NAME = "dragon_nuke_prefs"
         private const val KEY_SERVICE_ACCOUNT = "service_account_json"
     }
 
@@ -78,8 +78,8 @@ class MainActivity : AppCompatActivity() {
             pickServiceAccountFile()
         }
 
-        binding.btnTriggerReboot.setOnClickListener {
-            triggerReboot()
+        binding.btnTriggerNuke.setOnClickListener {
+            triggerNuke()
         }
     }
 
@@ -166,25 +166,25 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun triggerReboot() {
+    private fun triggerNuke() {
         if (serviceAccountJson == null) {
             Toast.makeText(this, "Please load a service account key first", Toast.LENGTH_SHORT).show()
             return
         }
 
-        binding.btnTriggerReboot.isEnabled = false
-        binding.btnTriggerReboot.text = "Triggering..."
+        binding.btnTriggerNuke.isEnabled = false
+        binding.btnTriggerNuke.text = "Triggering..."
 
         lifecycleScope.launch {
             try {
-                val success = uploadRebootTrigger()
+                val success = uploadNukeTrigger()
                 withContext(Dispatchers.Main) {
                     if (success) {
                         val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
                         binding.tvLastTrigger.text = "Last triggered: $timestamp"
-                        Toast.makeText(this@MainActivity, "Reboot trigger sent to all servers!", Toast.LENGTH_LONG).show()
+                        Toast.makeText(this@MainActivity, "Nuke trigger sent to all servers!", Toast.LENGTH_LONG).show()
                     } else {
-                        Toast.makeText(this@MainActivity, "Failed to trigger reboot", Toast.LENGTH_LONG).show()
+                        Toast.makeText(this@MainActivity, "Failed to trigger nuke", Toast.LENGTH_LONG).show()
                     }
                 }
             } catch (e: Exception) {
@@ -193,8 +193,8 @@ class MainActivity : AppCompatActivity() {
                 }
             } finally {
                 withContext(Dispatchers.Main) {
-                    binding.btnTriggerReboot.isEnabled = true
-                    binding.btnTriggerReboot.text = "🔥 TRIGGER REBOOT"
+                    binding.btnTriggerNuke.isEnabled = true
+                    binding.btnTriggerNuke.text = "🔥 TRIGGER NUKE"
                 }
             }
         }
@@ -290,7 +290,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private suspend fun uploadRebootTrigger(): Boolean = withContext(Dispatchers.IO) {
+    private suspend fun uploadNukeTrigger(): Boolean = withContext(Dispatchers.IO) {
         try {
             val accessToken = getAccessToken()
             if (accessToken == null) {
@@ -300,11 +300,11 @@ class MainActivity : AppCompatActivity() {
 
             Log.d(TAG, "Got access token, uploading file...")
 
-            val url = "https://$bucketName.storage.googleapis.com/reboot-trigger.txt"
+            val url = "https://$bucketName.storage.googleapis.com/nuke-trigger.txt"
 
-            Log.d(TAG, "Attempting to upload reboot trigger to: $url")
+            Log.d(TAG, "Attempting to upload nuke trigger to: $url")
 
-            val requestBody = "REBOOT=TRUE".toRequestBody("text/plain".toMediaType())
+            val requestBody = "NUKE=TRUE".toRequestBody("text/plain".toMediaType())
 
             val request = Request.Builder()
                 .url(url)
@@ -335,7 +335,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateUI() {
         val hasKey = serviceAccountJson != null
-        binding.btnTriggerReboot.isEnabled = hasKey
+        binding.btnTriggerNuke.isEnabled = hasKey
         
         if (hasKey) {
             val email = serviceAccountJson?.optString("client_email", "Unknown")

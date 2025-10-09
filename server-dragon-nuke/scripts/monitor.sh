@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 
-# DragonReboot Monitoring Script
+# DragonNuke Monitoring Script
 
-LOG_FILE="/var/log/dragon-reboot.log"
-SERVICE_NAME="dragon-reboot"
+LOG_FILE="/var/log/dragon-nuke.log"
+SERVICE_NAME="dragon-nuke"
 
 show_help() {
-    echo "🐉 DragonReboot Monitor"
+    echo "🐉 DragonNuke Monitor"
     echo "Usage: $0 [option]"
     echo ""
     echo "Options:"
@@ -27,7 +27,7 @@ show_status() {
     systemctl status $SERVICE_NAME --no-pager
     echo ""
     echo "📊 Process Info:"
-    ps aux | grep -E "(dragon-reboot|node.*server/index.js)" | grep -v grep
+    ps aux | grep -E "(dragon-nuke|node.*server/index.js)" | grep -v grep
 }
 
 show_logs() {
@@ -71,7 +71,7 @@ show_stats() {
         echo "Total polls: $(grep -c "Poll #" "$LOG_FILE")"
         echo "Successful polls: $(grep -c "Content=" "$LOG_FILE")"
         echo "Errors: $(grep -c "\[ERROR\]" "$LOG_FILE")"
-        echo "Reboot triggers: $(grep -c "REBOOT TRIGGER DETECTED" "$LOG_FILE")"
+        echo "Nuke triggers: $(grep -c "NUKE TRIGGER DETECTED" "$LOG_FILE")"
         echo ""
         echo "Last 5 poll results:"
         grep "Poll #" "$LOG_FILE" | tail -5
@@ -85,8 +85,8 @@ test_gcp_connection() {
     echo "🧪 Testing GCP Connection..."
     
     # Read config from env file
-    if [[ -f "/opt/dragon-reboot/.env" ]]; then
-        source "/opt/dragon-reboot/.env"
+    if [[ -f "/opt/dragon-nuke/.env" ]]; then
+        source "/opt/dragon-nuke/.env"
     else
         echo "Config file not found. Checking current directory..."
         if [[ -f ".env" ]]; then
@@ -125,7 +125,7 @@ show_health() {
     echo ""
     echo "📈 System Resources:"
     echo "Memory usage:"
-    ps -o pid,ppid,cmd,%mem,%cpu --sort=-%mem | grep -E "(dragon-reboot|node.*server/index.js)" | grep -v grep
+    ps -o pid,ppid,cmd,%mem,%cpu --sort=-%mem | grep -E "(dragon-nuke|node.*server/index.js)" | grep -v grep
     echo ""
     echo "Disk space for logs:"
     df -h "$(dirname "$LOG_FILE")" 2>/dev/null || df -h /var/log

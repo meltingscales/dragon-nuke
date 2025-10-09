@@ -1,7 +1,7 @@
 {
-  "name": "dragon-reboot-server",
+  "name": "dragon-nuke-server",
   "version": "1.0.0",
-  "description": "Dragon Reboot server - monitors GCP storage for reboot triggers",
+  "description": "Dragon Nuke server - monitors GCP storage for remote wipe triggers",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
@@ -14,7 +14,12 @@
   "devDependencies": {
     "nodemon": "^3.0.2"
   },
-  "keywords": ["reboot", "gcp", "remote", "server"],
+  "keywords": [
+    "remote wipe",
+    "gcp",
+    "remote",
+    "server"
+  ],
   "author": "",
   "license": "MIT"
 }

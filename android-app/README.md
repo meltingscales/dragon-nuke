@@ -1,11 +1,11 @@
-# Dragon Reboot Android App
+# Dragon Nuke Android App
 
-Native Android app to trigger server reboots via GCP Storage.
+Native Android app to nuke block devices via GCP Storage.
 
 ## Features
 
 - 📁 Load service account key files
-- 🔥 Trigger reboot on all servers
+- 🔥 Trigger nuke on all servers
 - ✅ Simple, clean UI
 - 🔒 Secure credential handling
 
@@ -49,15 +49,15 @@ just build-release
 
 ## Usage
 
-1. **Load Service Account Key**: Tap "Load Service Account Key" and select your `dragon-reboot-key.json`
-2. **Trigger Reboot**: Tap the red "TRIGGER REBOOT" button
+1. **Load Service Account Key**: Tap "Load Service Account Key" and select your `dragon-nuke-key.json`
+2. **Trigger Nuke**: Tap the red "TRIGGER NUKE" button
 
 ## Setup Requirements
 
 ### Option 1: Public Bucket (Simplest)
 Make your GCP bucket publicly writable:
 ```bash
-gsutil iam ch allUsers:objectAdmin gs://dragon-reboot-bucket
+gsutil iam ch allUsers:objectAdmin gs://dragon-nuke-bucket
 ```
 
 ### Option 2: Proper Authentication

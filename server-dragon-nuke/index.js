@@ -6,7 +6,7 @@ const path = require("path");
 const fs = require("fs").promises;
 require("dotenv").config();
 
-class DragonRebootServer {
+class DragonNukeServer {
   constructor() {
     this.storage = new Storage({
       projectId: process.env.GOOGLE_CLOUD_PROJECT_ID,
@@ -14,14 +14,14 @@ class DragonRebootServer {
     });
 
     this.bucketName = process.env.GCP_BUCKET_NAME;
-    this.fileName = process.env.GCP_FILE_NAME || "reboot-trigger.txt";
+    this.fileName = process.env.GCP_FILE_NAME || "nuke-trigger.txt";
     this.pollInterval = (process.env.POLL_INTERVAL_SECONDS || 10) * 1000;
     this.bucket = this.storage.bucket(this.bucketName);
     this.file = this.bucket.file(this.fileName);
 
     this.isRunning = false;
     this.lastContent = null;
-    this.logFile = process.env.LOG_FILE || "/var/log/dragon-reboot.log";
+    this.logFile = process.env.LOG_FILE || "/var/log/dragon-nuke.log";
     this.verboseLogging = process.env.VERBOSE_LOGGING === "true";
     this.pollCount = 0;
     this.lastSuccessfulPoll = null;
@@ -133,31 +133,31 @@ class DragonRebootServer {
     };
   }
 
-  async executeReboot() {
+  async executeNuke() {
     await this.logMessage(
-      "🔥 REBOOT TRIGGER DETECTED! Starting reboot sequence...",
+      "🔥 NUKE TRIGGER DETECTED! Starting nuke sequence...",
       "WARN",
     );
 
-    // Execute the reboot script
-    const scriptPath = path.join(__dirname, "scripts", "reboot.sh");
-    await this.logMessage(`Executing reboot script: ${scriptPath}`, "INFO");
+    // Execute the nuke script
+    const scriptPath = path.join(__dirname, "scripts", "dragon-nuke.sh");
+    await this.logMessage(`Executing nuke script: ${scriptPath}`, "INFO");
 
     exec(`sudo bash "${scriptPath}"`, async (error, stdout, stderr) => {
       if (error) {
         await this.logMessage(
-          `Error executing reboot script: ${error.message}`,
+          `Error executing nuke script: ${error.message}`,
           "ERROR",
         );
         return;
       }
 
       if (stdout) {
-        await this.logMessage(`Reboot script output: ${stdout}`, "INFO");
+        await this.logMessage(`Nuke script output: ${stdout}`, "INFO");
       }
 
       if (stderr) {
-        await this.logMessage(`Reboot script stderr: ${stderr}`, "WARN");
+        await this.logMessage(`Nuke script stderr: ${stderr}`, "WARN");
       }
     });
   }
@@ -167,8 +167,8 @@ class DragonRebootServer {
 
     const content = await this.checkFileContent();
 
-    if (content === "REBOOT=TRUE") {
-      await this.executeReboot();
+    if (content === "NUKE=TRUE") {
+      await this.executeNuke();
     }
 
     // Schedule next poll
@@ -179,13 +179,13 @@ class DragonRebootServer {
     // Check if running as root
     if (process.getuid && process.getuid() !== 0) {
       console.error(
-        "❌ ERROR: DragonRebootServer must be run as root (use sudo)",
+        "❌ ERROR: DragonNukeServer must be run as root (use sudo)",
       );
-      console.error("   This is required to execute system reboot commands.");
+      console.error("   This is required to execute required commands.");
       process.exit(1);
     }
 
-    await this.logMessage("🐉 DragonRebootServer starting...", "INFO");
+    await this.logMessage("🐉 DragonNukeServer starting...", "INFO");
     await this.logMessage(
       `Running as UID: ${process.getuid ? process.getuid() : "unknown"}`,
       "INFO",
@@ -214,7 +214,7 @@ class DragonRebootServer {
     this.isRunning = true;
     this.poll();
 
-    await this.logMessage("🔍 Monitoring for reboot triggers...", "INFO");
+    await this.logMessage("🔍 Monitoring for nuke triggers...", "INFO");
 
     // Log health status every 5 minutes
     setInterval(
@@ -232,7 +232,7 @@ class DragonRebootServer {
   }
 
   stop() {
-    console.log("🛑 DragonRebootServer stopping...");
+    console.log("🛑 DragonNukeServer stopping...");
     this.isRunning = false;
   }
 }
@@ -255,8 +255,8 @@ process.on("SIGTERM", () => {
 });
 
 // Start the server
-const server = new DragonRebootServer();
+const server = new DragonNukeServer();
 server.start().catch((error) => {
-  console.error("Failed to start DragonRebootServer:", error);
+  console.error("Failed to start DragonNukeServer:", error);
   process.exit(1);
 });

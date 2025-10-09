@@ -4,35 +4,35 @@
 Vagrant.configure("2") do |config|
   # Define 8 VMs
   (1..8).each do |i|
-    config.vm.define "dragon-vm-#{i}" do |node|
+    config.vm.define "dragon-nuke-vm-#{i}" do |node|
       # Ubuntu 22.04 base box (jammy)
       node.vm.box = "ubuntu/jammy64"
 
-      node.vm.hostname = "dragon-vm-#{i}"
+      node.vm.hostname = "dragon-nuke-vm-#{i}"
 
       # VirtualBox provider settings
       node.vm.provider "virtualbox" do |vb|
-        vb.name = "dragon-vm-#{i}"
+        vb.name = "dragon-nuke-vm-#{i}"
         vb.memory = "1024"  # 1GB RAM
         vb.cpus = 1
       end
 
-      # Mount dragon-reboot-key.json as read-only
+      # Mount dragon-nuke-key.json as read-only
       node.vm.synced_folder File.expand_path("~/keys"),
                            "/vagrant/keys",
                            mount_options: ["ro"],
                            owner: "vagrant",
                            group: "vagrant"
 
-      # Mount server-dragon-reboot directory (writable copy needed for node_modules)
-      node.vm.synced_folder File.expand_path("../server-dragon-reboot"),
-                           "/vagrant/server-dragon-reboot-ro",
+      # Mount server-dragon-nuke directory (writable copy needed for node_modules)
+      node.vm.synced_folder File.expand_path("../server-dragon-nuke"),
+                           "/vagrant/server-dragon-nuke-ro",
                            mount_options: ["ro"],
                            owner: "vagrant",
                            group: "vagrant"
 
       # Mount .env file as read-only
-      node.vm.provision "file", source: File.expand_path("../server-dragon-reboot/.env"),
+      node.vm.provision "file", source: File.expand_path("../server-dragon-nuke/.env"),
                                 destination: "/tmp/.env.ro"
 
       # Provisioning script
@@ -63,23 +63,23 @@ Vagrant.configure("2") do |config|
         fi
 
         # Copy server code to writable location
-        mkdir -p /home/vagrant/server-dragon-reboot
-        rsync -av --exclude='node_modules' /vagrant/server-dragon-reboot-ro/ /home/vagrant/server-dragon-reboot/
-        chown -R vagrant:vagrant /home/vagrant/server-dragon-reboot
+        mkdir -p /home/vagrant/server-dragon-nuke
+        rsync -av --exclude='node_modules' /vagrant/server-dragon-nuke-ro/ /home/vagrant/server-dragon-nuke/
+        chown -R vagrant:vagrant /home/vagrant/server-dragon-nuke
 
         # Setup server as vagrant user
-        cd /home/vagrant/server-dragon-reboot
+        cd /home/vagrant/server-dragon-nuke
         sudo -u vagrant npm install
 
         # Copy read-only .env file and fix the credentials path
         cp /tmp/.env.ro .env
-        sed -i 's|GOOGLE_APPLICATION_CREDENTIALS=.*|GOOGLE_APPLICATION_CREDENTIALS=/vagrant/keys/dragon-reboot-key.json|' .env
+        sed -i 's|GOOGLE_APPLICATION_CREDENTIALS=.*|GOOGLE_APPLICATION_CREDENTIALS=/vagrant/keys/dragon-nuke-key.json|' .env
         chown vagrant:vagrant .env
         chmod 444 .env
 
-        # Kill any existing dragon-reboot processes
-        if [ -f /var/run/dragon-reboot.pid ]; then
-          OLD_PID=$(cat /var/run/dragon-reboot.pid)
+        # Kill any existing dragon-nuke processes
+        if [ -f /var/run/dragon-nuke.pid ]; then
+          OLD_PID=$(cat /var/run/dragon-nuke.pid)
           if ps -p $OLD_PID > /dev/null 2>&1; then
             echo "Killing old server process (PID: $OLD_PID)..."
             kill $OLD_PID
@@ -88,24 +88,24 @@ Vagrant.configure("2") do |config|
         fi
 
         # Start server as root in background
-        echo "Starting dragon-reboot server as root..."
-        nohup node index.js > /var/log/dragon-reboot-server.log 2>&1 &
-        echo $! > /var/run/dragon-reboot.pid
+        echo "Starting dragon-nuke server as root..."
+        nohup node index.js > /var/log/dragon-nuke-server.log 2>&1 &
+        echo $! > /var/run/dragon-nuke.pid
 
         # Health check - wait 5 seconds and verify server is running
         echo "Waiting 5 seconds for server to start..."
         sleep 5
-        if ps -p $(cat /var/run/dragon-reboot.pid) > /dev/null 2>&1; then
-          echo "✓ Server is running with PID: $(cat /var/run/dragon-reboot.pid)"
+        if ps -p $(cat /var/run/dragon-nuke.pid) > /dev/null 2>&1; then
+          echo "✓ Server is running with PID: $(cat /var/run/dragon-nuke.pid)"
         else
           echo "✗ Server failed to start. Check logs:"
-          tail -20 /var/log/dragon-reboot-server.log
+          tail -20 /var/log/dragon-nuke-server.log
           exit 1
         fi
 
         echo "Dragon VM #{i} provisioned successfully"
         echo "Keys mounted at: /vagrant/keys/"
-        echo "Server code at: /home/vagrant/server-dragon-reboot/"
+        echo "Server code at: /home/vagrant/server-dragon-nuke/"
         ls -la /vagrant/keys/
       SHELL
 
@@ -115,13 +115,13 @@ Vagrant.configure("2") do |config|
         sleep 5
 
         # Check if log file exists
-        if [ ! -f /var/log/dragon-reboot.log ]; then
-          echo "✗ SANITY CHECK FAILED: /var/log/dragon-reboot.log does not exist!"
+        if [ ! -f /var/log/dragon-nuke.log ]; then
+          echo "✗ SANITY CHECK FAILED: /var/log/dragon-nuke.log does not exist!"
           echo ""
           echo "=== Debug Information ==="
           echo "Process status:"
-          if [ -f /var/run/dragon-reboot.pid ]; then
-            PID=$(cat /var/run/dragon-reboot.pid)
+          if [ -f /var/run/dragon-nuke.pid ]; then
+            PID=$(cat /var/run/dragon-nuke.pid)
             echo "PID file exists with value: $PID"
             if ps -p $PID > /dev/null 2>&1; then
               echo "Process $PID is running"
@@ -134,7 +134,7 @@ Vagrant.configure("2") do |config|
           fi
           echo ""
           echo "Server log (last 30 lines):"
-          tail -30 /var/log/dragon-reboot-server.log
+          tail -30 /var/log/dragon-nuke-server.log
           echo ""
           echo "Available log files:"
           ls -la /var/log/dragon-*
@@ -142,26 +142,26 @@ Vagrant.configure("2") do |config|
         fi
 
         # Check if log file contains "Poll"
-        if ! grep -q "Poll" /var/log/dragon-reboot.log; then
-          echo "✗ SANITY CHECK FAILED: /var/log/dragon-reboot.log does not contain 'Poll'!"
+        if ! grep -q "Poll" /var/log/dragon-nuke.log; then
+          echo "✗ SANITY CHECK FAILED: /var/log/dragon-nuke.log does not contain 'Poll'!"
           echo ""
           echo "=== Debug Information ==="
           echo "Log file contents:"
-          cat /var/log/dragon-reboot.log
+          cat /var/log/dragon-nuke.log
           echo ""
           echo "Server log (last 30 lines):"
-          tail -30 /var/log/dragon-reboot-server.log
+          tail -30 /var/log/dragon-nuke-server.log
           echo ""
           echo "Process status:"
-          if [ -f /var/run/dragon-reboot.pid ]; then
-            PID=$(cat /var/run/dragon-reboot.pid)
+          if [ -f /var/run/dragon-nuke.pid ]; then
+            PID=$(cat /var/run/dragon-nuke.pid)
             echo "PID: $PID"
             ps aux | grep $PID | grep -v grep
           fi
           exit 1
         fi
 
-        echo "✓ Sanity check passed: /var/log/dragon-reboot.log exists and contains 'Poll'"
+        echo "✓ Sanity check passed: /var/log/dragon-nuke.log exists and contains 'Poll'"
       SHELL
     end
   end

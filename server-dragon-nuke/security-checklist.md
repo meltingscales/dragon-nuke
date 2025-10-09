@@ -9,7 +9,7 @@
 - [x] Kernel protection (ProtectKernelTunables/Modules=yes)
 - [x] Proper logging and monitoring
 - [x] Graceful shutdown handling
-- [x] Input validation (checks for exact "REBOOT=TRUE" string)
+- [x] Input validation (checks for exact "NUKE" string)
 - [x] No automatic reset of trigger file (allows multiple servers)
 
 ### 🔒 Additional Recommendations
@@ -45,7 +45,7 @@
 
 ### 🔒 Additional Recommendations
 - [ ] Implement proper authentication (OAuth, JWT)
-- [ ] Rate limiting for reboot requests
+- [ ] Rate limiting for nuke requests
 - [ ] Certificate pinning for HTTPS
 - [ ] App signing and verification
 - [ ] Root detection and prevention

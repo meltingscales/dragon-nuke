@@ -1,5 +1,5 @@
 [Unit]
-Description=DragonReboot Server - Remote reboot listener
+Description=DragonNuke Server - Remote block device wipe listener
 After=network.target
 StartLimitIntervalSec=0
 
@@ -8,10 +8,10 @@ Type=simple
 Restart=always
 RestartSec=10
 User=root
-ExecStart=/usr/bin/node /opt/dragon-reboot/server-dragon-reboot/index.js
-WorkingDirectory=/opt/dragon-reboot/server-dragon-reboot
+ExecStart=/usr/bin/node /opt/dragon-nuke/server-dragon-nuke/index.js
+WorkingDirectory=/opt/dragon-nuke/server-dragon-nuke
 Environment=NODE_ENV=production
-EnvironmentFile=/opt/dragon-reboot/server-dragon-reboot/.env
+EnvironmentFile=/opt/dragon-nuke/server-dragon-nuke/.env
 
 # Security settings
 NoNewPrivileges=yes
@@ -26,7 +26,7 @@ ProtectControlGroups=yes
 # Logging
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=dragon-reboot
+SyslogIdentifier=dragon-nuke
 
 [Install]
 WantedBy=multi-user.target

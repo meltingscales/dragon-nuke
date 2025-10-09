@@ -1,4 +1,4 @@
-# Dragon Reboot Android App - Just Commands
+# Dragon Nuke Android App - Just Commands
 
 default:
     @just --list
@@ -38,7 +38,7 @@ test:
 
 # Generate signing key for release
 generate-key:
-    keytool -genkey -v -keystore dragon-reboot.keystore -alias dragon-reboot -keyalg RSA -keysize 2048 -validity 10000
+    keytool -genkey -v -keystore dragon-nuke.keystore -alias dragon-nuke -keyalg RSA -keysize 2048 -validity 10000
 
 # Build signed release APK (requires keystore)
 build-signed:

@@ -16,13 +16,13 @@ gcloud services enable storage-api.googleapis.com
 
 ```bash
 # Create bucket
-gsutil mb gs://dragon-reboot-bucket
+gsutil mb gs://dragon-nuke-bucket
 
 # Make bucket private (default)
-gsutil iam ch -d allUsers:objectViewer gs://dragon-reboot-bucket
+gsutil iam ch -d allUsers:objectViewer gs://dragon-nuke-bucket
 
 # For Android app to work with simple auth, you may need to make it publicly writable:
-# gsutil iam ch allUsers:objectAdmin gs://dragon-reboot-bucket
+# gsutil iam ch allUsers:objectAdmin gs://dragon-nuke-bucket
 # WARNING: This allows anyone to write to your bucket. Use with caution.
 ```
 
@@ -30,17 +30,17 @@ gsutil iam ch -d allUsers:objectViewer gs://dragon-reboot-bucket
 
 ```bash
 # Create service account
-gcloud iam service-accounts create dragon-reboot-service \
-    --description="Service account for DragonReboot system" \
-    --display-name="DragonReboot Service"
+gcloud iam service-accounts create dragon-nuke-service \
+    --description="Service account for DragonNuke system" \
+    --display-name="DragonNuke Service"
 
 # Create and download key
-gcloud iam service-accounts keys create ~/dragon-reboot-key.json \
-    --iam-account=dragon-reboot-service@dragon-nuke.iam.gserviceaccount.com
+gcloud iam service-accounts keys create ~/dragon-nuke-key.json \
+    --iam-account=dragon-nuke-service@dragon-nuke.iam.gserviceaccount.com
 
 # Grant storage permissions
 gcloud projects add-iam-policy-binding dragon-nuke \
-    --member="serviceAccount:dragon-reboot-service@dragon-nuke.iam.gserviceaccount.com" \
+    --member="serviceAccount:dragon-nuke-service@dragon-nuke.iam.gserviceaccount.com" \
     --role="roles/storage.objectAdmin"
 ```
 
@@ -48,10 +48,10 @@ gcloud projects add-iam-policy-binding dragon-nuke \
 
 ```bash
 # Create initial "safe" state
-echo "safe" | gsutil cp - gs://dragon-reboot-bucket/reboot-trigger.txt
+echo "safe" | gsutil cp - gs://dragon-nuke-bucket/nuke-trigger.txt
 
 # Verify it was created
-gsutil cat gs://dragon-reboot-bucket/reboot-trigger.txt
+gsutil cat gs://dragon-nuke-bucket/nuke-trigger.txt
 ```
 
 ## 6. Configure Environment
@@ -64,11 +64,11 @@ cp ../.env.example .env
 2. Edit `.env` with your values:
 ```env
 GOOGLE_CLOUD_PROJECT_ID=dragon-nuke
-GOOGLE_APPLICATION_CREDENTIALS=/absolute/path/to/dragon-reboot-key.json
-GCP_BUCKET_NAME=dragon-reboot-bucket
-GCP_FILE_NAME=reboot-trigger.txt
+GOOGLE_APPLICATION_CREDENTIALS=/absolute/path/to/dragon-nuke-key.json
+GCP_BUCKET_NAME=dragon-nuke-bucket
+GCP_FILE_NAME=nuke-trigger.txt
 POLL_INTERVAL_SECONDS=10
-LOG_FILE=/var/log/dragon-reboot.log
+LOG_FILE=/var/log/dragon-nuke.log
 VERBOSE_LOGGING=false
 ```
 
@@ -82,17 +82,17 @@ just test-gcp
 just debug
 
 # Test trigger manually
-just trigger-reboot
+just trigger-nuke
 ```
 
 ## 8. Android App Setup
 
 For the Android app to work:
 
-1. Copy the service account key (`dragon-reboot-key.json`) to your phone
-2. Open the Dragon Reboot app
+1. Copy the service account key (`dragon-nuke-key.json`) to your phone
+2. Open the Dragon Nuke app
 3. Load the service account key file
-4. Tap "TRIGGER REBOOT" to test
+4. Tap "TRIGGER NUKE" to test
 
 ## Security Notes
 

@@ -1,4 +1,4 @@
-# VM Testing Justfile for Dragon Reboot
+# VM Testing Justfile for Dragon Nuke
 
 # Show available commands
 default:
@@ -10,7 +10,7 @@ up:
 
 # Start a specific VM (e.g., just start 1)
 start n:
-    vagrant up dragon-vm-{{n}}
+    vagrant up dragon-nuke-vm-{{n}}
 
 # Stop all VMs
 halt:
@@ -18,7 +18,7 @@ halt:
 
 # Stop a specific VM
 stop n:
-    vagrant halt dragon-vm-{{n}}
+    vagrant halt dragon-nuke-vm-{{n}}
 
 # Destroy all VMs
 destroy:
@@ -26,7 +26,7 @@ destroy:
 
 # Destroy a specific VM
 destroy-one n:
-    vagrant destroy -f dragon-vm-{{n}}
+    vagrant destroy -f dragon-nuke-vm-{{n}}
 
 # Show status of all VMs
 status:
@@ -34,7 +34,7 @@ status:
 
 # SSH into a specific VM (e.g., just ssh 1)
 ssh n:
-    vagrant ssh dragon-vm-{{n}}
+    vagrant ssh dragon-nuke-vm-{{n}}
 
 # Reload all VMs (restart with new config)
 reload:
@@ -42,7 +42,7 @@ reload:
 
 # Reload a specific VM
 reload-one n:
-    vagrant reload dragon-vm-{{n}}
+    vagrant reload dragon-nuke-vm-{{n}}
 
 # Provision all VMs
 provision:
@@ -50,7 +50,7 @@ provision:
 
 # Provision a specific VM
 provision-one n:
-    vagrant provision dragon-vm-{{n}}
+    vagrant provision dragon-nuke-vm-{{n}}
 
 # Start all VMs in parallel (faster)
 up-parallel:

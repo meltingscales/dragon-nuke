@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 
-echo "DragonReboot triggered! Rebooting..."
+echo "DragonNuke triggered! Nuking..."
 
-# Log the reboot event
-echo "$(date): DragonReboot triggered by remote command" >> /var/log/dragon-reboot.log
+# Log the wipe event
+echo "$(date): DragonNuke triggered by remote command" >> /var/log/dragon-nuke.log
 
 # Function to send notification to all logged-in users
 notify_users() {
@@ -21,26 +21,26 @@ notify_users() {
         if [[ "$display" =~ ^:[0-9]+$ ]]; then
             # This looks like an X11 display
             sudo -u "$user" DISPLAY="$display" notify-send --urgency=critical --expire-time=0 \
-                "🔥 System Reboot" \
-                "DragonReboot triggered! System will reboot in $delay seconds." 2>/dev/null || true
+                "🔥 System Nuke" \
+                "DragonNuke triggered! System will destroy all block devices in $delay seconds." 2>/dev/null || true
         fi
     done
     
     # Send systemd user notifications if available
     for user_id in $(loginctl list-users --no-legend | awk '{print $1}'); do
         user=$(getent passwd "$user_id" | cut -d: -f1)
-        sudo -u "$user" systemd-notify --user "STATUS=DragonReboot: System rebooting in $delay seconds" 2>/dev/null || true
+        sudo -u "$user" systemd-notify --user "STATUS=DragonNuke: System nuke starting in $delay seconds" 2>/dev/null || true
     done
 }
 
 # Send initial warning
-notify_users "URGENT: Remote reboot triggered! System will restart in 1 seconds." "1"
+notify_users "URGENT: Remote nuke triggered! System will destroy all block devices in 1 seconds." "1"
 sleep 1
 
-notify_users "System rebooting NOW!" "0"
+notify_users "Filesystem nuke starting NOW!" "0"
 
 # Final log entry
-echo "$(date): Executing reboot command" >> /var/log/dragon-reboot.log
+echo "$(date): Executing nuke command" >> /var/log/dragon-nuke.log
 
 # Execute the reboot in multiple ways
 /sbin/reboot &

@@ -8,16 +8,16 @@ sudo apt update
 sudo apt install -y nodejs npm curl
 
 # Clone and install
-git clone <repo-url> dragon-reboot
-cd dragon-reboot/server-dragon-reboot
+git clone <repo-url> dragon-nuke
+cd dragon-nuke/server-dragon-nuke
 sudo ./install.sh
 ```
 
 ### Service Management
 ```bash
-sudo systemctl start dragon-reboot
-sudo systemctl enable dragon-reboot
-sudo systemctl status dragon-reboot
+sudo systemctl start dragon-nuke
+sudo systemctl enable dragon-nuke
+sudo systemctl status dragon-nuke
 ```
 
 ## Fedora
@@ -27,16 +27,16 @@ sudo systemctl status dragon-reboot
 sudo dnf install -y nodejs npm curl
 
 # Clone and install
-git clone <repo-url> dragon-reboot
-cd dragon-reboot/server-dragon-reboot
+git clone <repo-url> dragon-nuke
+cd dragon-nuke/server-dragon-nuke
 sudo ./install.sh
 ```
 
 ### Service Management
 ```bash
-sudo systemctl start dragon-reboot
-sudo systemctl enable dragon-reboot
-sudo systemctl status dragon-reboot
+sudo systemctl start dragon-nuke
+sudo systemctl enable dragon-nuke
+sudo systemctl status dragon-nuke
 ```
 
 ## CachyOS (Arch-based)
@@ -46,16 +46,16 @@ sudo systemctl status dragon-reboot
 sudo pacman -S nodejs npm curl
 
 # Clone and install
-git clone <repo-url> dragon-reboot
-cd dragon-reboot/server-dragon-reboot
+git clone <repo-url> dragon-nuke
+cd dragon-nuke/server-dragon-nuke
 sudo ./install.sh
 ```
 
 ### Service Management
 ```bash
-sudo systemctl start dragon-reboot
-sudo systemctl enable dragon-reboot
-sudo systemctl status dragon-reboot
+sudo systemctl start dragon-nuke
+sudo systemctl enable dragon-nuke
+sudo systemctl status dragon-nuke
 ```
 
 ## NixOS
@@ -66,8 +66,8 @@ sudo systemctl status dragon-reboot
 nix-shell -p nodejs npm
 
 # Clone and install
-git clone <repo-url> dragon-reboot
-cd dragon-reboot/server-dragon-reboot
+git clone <repo-url> dragon-nuke
+cd dragon-nuke/server-dragon-nuke
 sudo ./install.sh
 ```
 
@@ -85,17 +85,17 @@ Add to your `/etc/nixos/configuration.nix`:
     npm
   ];
 
-  # Create dragon-reboot user
-  users.users.dragon-reboot = {
+  # Create dragon-nuke user
+  users.users.dragon-nuke = {
     isSystemUser = true;
-    group = "dragon-reboot";
-    home = "/opt/dragon-reboot";
+    group = "dragon-nuke";
+    home = "/opt/dragon-nuke";
   };
-  users.groups.dragon-reboot = {};
+  users.groups.dragon-nuke = {};
 
   # Create systemd service
-  systemd.services.dragon-reboot = {
-    description = "DragonReboot Server - Remote reboot listener";
+  systemd.services.dragon-nuke = {
+    description = "DragonNuke Server - Remote wipe listener";
     after = [ "network.target" ];
     wantedBy = [ "multi-user.target" ];
     
@@ -103,10 +103,10 @@ Add to your `/etc/nixos/configuration.nix`:
       Type = "simple";
       Restart = "always";
       RestartSec = 10;
-      User = "root";  # Needs root for reboot
-      ExecStart = "${pkgs.nodejs}/bin/node /opt/dragon-reboot/server-dragon-reboot/index.js";
-      WorkingDirectory = "/opt/dragon-reboot/server-dragon-reboot";
-      EnvironmentFile = "/opt/dragon-reboot/server-dragon-reboot/.env";
+      User = "root";  # Needs root for nuke
+      ExecStart = "${pkgs.nodejs}/bin/node /opt/dragon-nuke/server-dragon-nuke/index.js";
+      WorkingDirectory = "/opt/dragon-nuke/server-dragon-nuke";
+      EnvironmentFile = "/opt/dragon-nuke/server-dragon-nuke/.env";
       
       # Security
       NoNewPrivileges = true;
@@ -121,20 +121,20 @@ Add to your `/etc/nixos/configuration.nix`:
   };
 
   # Create directories
-  system.activationScripts.dragon-reboot = ''
-    mkdir -p /opt/dragon-reboot/server-dragon-reboot
-    mkdir -p /var/log/dragon-reboot
-    chown dragon-reboot:dragon-reboot /opt/dragon-reboot
-    chmod 755 /opt/dragon-reboot
+  system.activationScripts.dragon-nuke = ''
+    mkdir -p /opt/dragon-nuke/server-dragon-nuke
+    mkdir -p /var/log/dragon-nuke
+    chown dragon-nuke:dragon-nuke /opt/dragon-nuke
+    chmod 755 /opt/dragon-nuke
   '';
 
-  # Sudo permissions for reboot
+  # Sudo permissions for nuke
   security.sudo.extraRules = [
     {
       users = [ "root" ];
       commands = [
         {
-          command = "/opt/dragon-reboot/scripts/reboot.sh";
+          command = "/opt/dragon-nuke/scripts/dragon-nuke.sh";
           options = [ "NOPASSWD" ];
         }
       ];
@@ -153,16 +153,16 @@ If using the traditional install method on NixOS:
 
 ```bash
 # Copy files manually
-sudo mkdir -p /opt/dragon-reboot/server-dragon-reboot
-sudo cp -r ./* /opt/dragon-reboot/server-dragon-reboot/
-sudo chown -R root:root /opt/dragon-reboot
+sudo mkdir -p /opt/dragon-nuke/server-dragon-nuke
+sudo cp -r ./* /opt/dragon-nuke/server-dragon-nuke/
+sudo chown -R root:root /opt/dragon-nuke
 
 # Install dependencies
-cd /opt/dragon-reboot/server-dragon-reboot
+cd /opt/dragon-nuke/server-dragon-nuke
 nix-shell -p nodejs npm --run "npm install --production"
 
 # Create service file
-sudo cp dragon-reboot.service /etc/systemd/system/
+sudo cp dragon-nuke.service /etc/systemd/system/
 sudo systemctl daemon-reload
 ```
 
@@ -179,34 +179,34 @@ COPY package*.json ./
 RUN npm install --production
 
 COPY . .
-RUN chmod +x ../scripts/reboot.sh
+RUN chmod +x ../scripts/dragon-nuke.sh
 RUN chmod +x index.js
 
-# Note: Container won't actually reboot the host
+# Note: Container won't actually nuke the host's block devices
 # Use with caution and proper container orchestration
 CMD ["node", "index.js"]
 ```
 
 ```bash
 # Build and run
-docker build -t dragon-reboot-server .
-docker run -d --name dragon-reboot-server \
+docker build -t dragon-nuke-server .
+docker run -d --name dragon-nuke-server \
   --privileged \
   -v /var/log:/var/log \
   --env-file .env \
-  dragon-reboot-server
+  dragon-nuke-server
 ```
 
 ## OpenRC Systems (Alpine, Gentoo)
 
-Create `/etc/init.d/dragon-reboot`:
+Create `/etc/init.d/dragon-nuke`:
 ```bash
 #!/sbin/openrc-run
 
-name="dragon-reboot"
-description="DragonReboot Server - Remote reboot listener"
+name="dragon-nuke"
+description="DragonNuke Server - Remote block device wipe listener"
 command="/usr/bin/node"
-command_args="/opt/dragon-reboot/server-dragon-reboot/index.js"
+command_args="/opt/dragon-nuke/server-dragon-nuke/index.js"
 command_user="root"
 pidfile="/run/${RC_SVCNAME}.pid"
 command_background="yes"
@@ -217,30 +217,30 @@ depend() {
 }
 
 start_pre() {
-    checkpath --directory --owner root:root --mode 0755 /var/log/dragon-reboot
+    checkpath --directory --owner root:root --mode 0755 /var/log/dragon-nuke
 }
 ```
 
 ```bash
 # Make executable and enable
-sudo chmod +x /etc/init.d/dragon-reboot
-sudo rc-update add dragon-reboot default
-sudo service dragon-reboot start
+sudo chmod +x /etc/init.d/dragon-nuke
+sudo rc-update add dragon-nuke default
+sudo service dragon-nuke start
 ```
 
 ## Verification Commands (All Distros)
 
 ```bash
 # Check service status
-sudo systemctl status dragon-reboot  # systemd
-sudo service dragon-reboot status     # OpenRC
+sudo systemctl status dragon-nuke  # systemd
+sudo service dragon-nuke status     # OpenRC
 
 # Check logs
-sudo journalctl -u dragon-reboot -f   # systemd
-sudo tail -f /var/log/dragon-reboot.log
+sudo journalctl -u dragon-nuke -f   # systemd
+sudo tail -f /var/log/dragon-nuke.log
 
 # Test configuration
-cd /opt/dragon-reboot/server-dragon-reboot
+cd /opt/dragon-nuke/server-dragon-nuke
 just test-gcp
 
 # Start server manually

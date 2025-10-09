@@ -22,7 +22,7 @@ pkgs.mkShell {
   ];
 
   shellHook = ''
-    echo "🐉 DragonReboot Server Development Environment"
+    echo "🐉 DragonNuke Server Development Environment"
     echo ""
     echo "Available tools:"
     echo "  - Node.js $(node --version)"
@@ -33,7 +33,7 @@ pkgs.mkShell {
     echo ""
     echo "GCP Configuration:"
     echo "  Project: dragon-nuke"
-    echo "  Bucket: gs://dragon-reboot-bucket"
+    echo "  Bucket: gs://dragon-nuke-bucket"
     echo ""
     echo "Quick commands:"
     echo "  just setup      # Initial setup"
@@ -62,5 +62,5 @@ pkgs.mkShell {
 
   # Environment variables for the shell
   GOOGLE_CLOUD_PROJECT = "dragon-nuke";
-  GCP_BUCKET_NAME = "dragon-reboot-bucket";
+  GCP_BUCKET_NAME = "dragon-nuke-bucket";
 }

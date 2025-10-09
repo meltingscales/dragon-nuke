@@ -13,5 +13,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "DragonReboot"
+rootProject.name = "DragonNuke"
 include ':app'

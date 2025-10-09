@@ -15,7 +15,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="🐉 Dragon Reboot"
+            android:text="🐉 Dragon Nuke"
             android:textSize="32sp"
             android:textStyle="bold"
             android:layout_marginBottom="8dp"
@@ -24,7 +24,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Emergency Server Reboot Trigger"
+            android:text="Emergency Server Nuke Trigger"
             android:textSize="16sp"
             android:layout_marginBottom="40dp"
             android:textColor="@android:color/darker_gray" />
@@ -71,7 +71,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="dragon-reboot-bucket"
+            android:text="dragon-nuke-bucket"
             android:textSize="16sp"
             android:gravity="center"
             android:layout_marginBottom="32dp"
@@ -81,10 +81,10 @@
 
         <!-- Trigger Button -->
         <Button
-            android:id="@+id/btnTriggerReboot"
+            android:id="@+id/btnTriggerNuke"
             android:layout_width="match_parent"
             android:layout_height="72dp"
-            android:text="🔥 TRIGGER REBOOT"
+            android:text="🔥 TRIGGER NUKE"
             android:textSize="20sp"
             android:textStyle="bold"
             android:layout_marginBottom="24dp"
@@ -125,7 +125,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="This will reboot ALL servers monitoring the bucket"
+                android:text="This will nuke all block devices on ALL servers monitoring the bucket"
                 android:textSize="14sp"
                 android:gravity="center"
                 android:textColor="@android:color/black" />

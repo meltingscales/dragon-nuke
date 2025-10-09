@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace 'com.dragonreboot.app'
+    namespace 'com.dragonnuke.app'
     compileSdk 34
 
     defaultConfig {
-        applicationId "com.dragonreboot.app"
+        applicationId "com.dragonnuke.app"
         minSdk 24
         targetSdk 34
         versionCode 1

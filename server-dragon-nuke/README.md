@@ -1,11 +1,11 @@
-# Dragon Reboot Server
+# Dragon Nuke Server
 
-Node.js server that monitors GCP Storage for reboot triggers and executes system reboots.
+Node.js server that monitors GCP Storage for nuke triggers and wipes block devices.
 
 ## Features
 
-- 🔍 Monitors GCP Storage bucket for reboot triggers
-- 🔥 Executes system reboot when triggered
+- 🔍 Monitors GCP Storage bucket for nuke triggers
+- 🔥 Executes system block device nuke when triggered
 - 📊 Health monitoring and logging
 - ⚡ Configurable poll intervals
 - 🛡️ Security-focused design
@@ -46,7 +46,7 @@ Node.js server that monitors GCP Storage for reboot triggers and executes system
 # Start in debug mode
 just debug
 
-# Start as root (required for reboot)
+# Start as root (required for nuke)
 just start-root
 ```
 
@@ -62,20 +62,20 @@ Required environment variables in `.env`:
 
 ```bash
 GOOGLE_CLOUD_PROJECT_ID=dragon-nuke
-GCP_BUCKET_NAME=dragon-reboot-bucket
+GCP_BUCKET_NAME=dragon-nuke-bucket
 GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account-key.json
 POLL_INTERVAL_SECONDS=10
-LOG_FILE=/var/log/dragon-reboot.log
+LOG_FILE=/var/log/dragon-nuke.log
 VERBOSE_LOGGING=false
 ```
 
 ## Monitoring
 
-The server logs all activity and provides health status information. Check logs for monitoring reboot triggers and system health.
+The server logs all activity and provides health status information. Check logs for monitoring nuke triggers and system health.
 
 ## Security
 
-- Runs as root (required for system reboot)
+- Runs as root (required for system nuke)
 - Validates service account credentials
-- Logs all reboot activities
-- No automatic trigger reset (allows multiple servers to reboot)
+- Logs all nuke activities
+- No automatic trigger reset (allows multiple servers to nuke)
