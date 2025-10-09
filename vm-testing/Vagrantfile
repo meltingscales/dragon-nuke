@@ -89,7 +89,7 @@ Vagrant.configure("2") do |config|
 
         # Start server as root in background
         echo "Starting dragon-nuke server as root..."
-        nohup node index.js > /var/log/dragon-nuke-server.log 2>&1 &
+        nohup node index.js > /var/log/dragon-nuke.log 2>&1 &
         echo $! > /var/run/dragon-nuke.pid
 
         # Health check - wait 5 seconds and verify server is running
@@ -99,7 +99,7 @@ Vagrant.configure("2") do |config|
           echo "✓ Server is running with PID: $(cat /var/run/dragon-nuke.pid)"
         else
           echo "✗ Server failed to start. Check logs:"
-          tail -20 /var/log/dragon-nuke-server.log
+          tail -20 /var/log/dragon-nuke.log
           exit 1
         fi
 
@@ -115,8 +115,8 @@ Vagrant.configure("2") do |config|
         sleep 5
 
         # Check if log file exists
-        if [ ! -f /var/log/dragon-nuke-server.log ]; then
-          echo "✗ SANITY CHECK FAILED: /var/log/dragon-nuke-server.log does not exist!"
+        if [ ! -f /var/log/dragon-nuke.log ]; then
+          echo "✗ SANITY CHECK FAILED: /var/log/dragon-nuke.log does not exist!"
           echo ""
           echo "=== Debug Information ==="
           echo "Process status:"
@@ -134,7 +134,7 @@ Vagrant.configure("2") do |config|
           fi
           echo ""
           echo "Server log (last 30 lines):"
-          tail -30 /var/log/dragon-nuke-server.log
+          tail -30 /var/log/dragon-nuke.log
           echo ""
           echo "Available log files:"
           ls -la /var/log/dragon-*
@@ -142,15 +142,15 @@ Vagrant.configure("2") do |config|
         fi
 
         # Check if log file contains "Poll"
-        if ! grep -q "Poll" /var/log/dragon-nuke-server.log; then
-          echo "✗ SANITY CHECK FAILED: /var/log/dragon-nuke-server.log does not contain 'Poll'!"
+        if ! grep -q "Poll" /var/log/dragon-nuke.log; then
+          echo "✗ SANITY CHECK FAILED: /var/log/dragon-nuke.log does not contain 'Poll'!"
           echo ""
           echo "=== Debug Information ==="
           echo "Log file contents:"
-          cat /var/log/dragon-nuke-server.log
+          cat /var/log/dragon-nuke.log
           echo ""
           echo "Server log (last 30 lines):"
-          tail -30 /var/log/dragon-nuke-server.log
+          tail -30 /var/log/dragon-nuke.log
           echo ""
           echo "Process status:"
           if [ -f /var/run/dragon-nuke.pid ]; then
@@ -161,7 +161,7 @@ Vagrant.configure("2") do |config|
           exit 1
         fi
 
-        echo "✓ Sanity check passed: /var/log/dragon-nuke-server.log exists and contains 'Poll'"
+        echo "✓ Sanity check passed: /var/log/dragon-nuke.log exists and contains 'Poll'"
       SHELL
     end
   end

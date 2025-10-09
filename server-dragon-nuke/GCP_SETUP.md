@@ -35,7 +35,7 @@ gcloud iam service-accounts create dragon-nuke-service \
     --display-name="DragonNuke Service"
 
 # Create and download key
-gcloud iam service-accounts keys create ~/dragon-nuke-key.json \
+gcloud iam service-accounts keys create ~/keys/dragon-nuke-key.json \
     --iam-account=dragon-nuke-service@dragon-nuke.iam.gserviceaccount.com
 
 # Grant storage permissions
