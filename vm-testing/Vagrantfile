@@ -104,6 +104,61 @@ Vagrant.configure("2") do |config|
         echo "Server code at: /home/vagrant/server-dragon-reboot/"
         ls -la /vagrant/keys/
       SHELL
+
+      # Sanity check provisioner that runs always
+      node.vm.provision "shell", run: "always", inline: <<-SHELL
+        echo "Running sanity check..."
+        sleep 5
+
+        # Check if log file exists
+        if [ ! -f /var/log/dragon-reboot.log ]; then
+          echo "✗ SANITY CHECK FAILED: /var/log/dragon-reboot.log does not exist!"
+          echo ""
+          echo "=== Debug Information ==="
+          echo "Process status:"
+          if [ -f /var/run/dragon-reboot.pid ]; then
+            PID=$(cat /var/run/dragon-reboot.pid)
+            echo "PID file exists with value: $PID"
+            if ps -p $PID > /dev/null 2>&1; then
+              echo "Process $PID is running"
+              ps aux | grep $PID | grep -v grep
+            else
+              echo "Process $PID is NOT running"
+            fi
+          else
+            echo "PID file does not exist"
+          fi
+          echo ""
+          echo "Server log (last 30 lines):"
+          tail -30 /var/log/dragon-reboot-server.log
+          echo ""
+          echo "Available log files:"
+          ls -la /var/log/dragon-*
+          exit 1
+        fi
+
+        # Check if log file contains "Poll"
+        if ! grep -q "Poll" /var/log/dragon-reboot.log; then
+          echo "✗ SANITY CHECK FAILED: /var/log/dragon-reboot.log does not contain 'Poll'!"
+          echo ""
+          echo "=== Debug Information ==="
+          echo "Log file contents:"
+          cat /var/log/dragon-reboot.log
+          echo ""
+          echo "Server log (last 30 lines):"
+          tail -30 /var/log/dragon-reboot-server.log
+          echo ""
+          echo "Process status:"
+          if [ -f /var/run/dragon-reboot.pid ]; then
+            PID=$(cat /var/run/dragon-reboot.pid)
+            echo "PID: $PID"
+            ps aux | grep $PID | grep -v grep
+          fi
+          exit 1
+        fi
+
+        echo "✓ Sanity check passed: /var/log/dragon-reboot.log exists and contains 'Poll'"
+      SHELL
     end
   end
 end
