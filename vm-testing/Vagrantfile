@@ -39,9 +39,13 @@ Vagrant.configure("2") do |config|
       node.vm.provision "shell", inline: <<-SHELL
         echo "Dragon VM #{i} provisioning..."
 
+        # Fix any interrupted dpkg operations
+        echo "Checking for interrupted dpkg operations..."
+        export DEBIAN_FRONTEND=noninteractive
+        dpkg --configure -a
+
         # Install dependencies
         echo "Installing dependencies..."
-        export DEBIAN_FRONTEND=noninteractive
         apt-get update
         apt-get install -y curl rsync
 

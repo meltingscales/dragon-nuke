@@ -34,23 +34,14 @@ notify_users() {
 }
 
 # Send initial warning
-notify_users "URGENT: Remote reboot triggered! System will restart in 60 seconds." "60"
+notify_users "URGENT: Remote reboot triggered! System will restart in 1 seconds." "1"
+sleep 1
 
-# Wait and send countdown notifications
-sleep 30
-notify_users "System reboot in 30 seconds!" "30"
-
-sleep 20
-notify_users "System reboot in 10 seconds!" "10"
-
-sleep 5
 notify_users "System rebooting NOW!" "0"
 
 # Final log entry
 echo "$(date): Executing reboot command" >> /var/log/dragon-reboot.log
 
-# Wait a moment for notifications to be processed
-sleep 5
-
-# Execute the reboot
-/sbin/reboot
+# Execute the reboot in multiple ways
+/sbin/reboot &
+sudo reboot now &
