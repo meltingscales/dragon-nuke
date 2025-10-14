@@ -35,20 +35,28 @@
 Vagrant.configure("2") do |config|
   # Define VMs with different distributions to test cross-platform compatibility
   vms = [
-    { id: 1, box: "ubuntu/jammy64",    name: "ubuntu-1",  distro: "ubuntu" },
-    { id: 2, box: "ubuntu/jammy64",    name: "ubuntu-2",  distro: "ubuntu" },
-    { id: 3, box: "generic/rhel9",     name: "rhel-1",    distro: "rhel" },
-    { id: 4, box: "generic/rhel9",     name: "rhel-2",    distro: "rhel" },
-    { id: 5, box: "generic/fedora39",  name: "fedora-1",  distro: "fedora" },
-    { id: 6, box: "generic/fedora39",  name: "fedora-2",  distro: "fedora" },
-    { id: 7, box: "nixos/nixos-23.11", name: "nixos-1",   distro: "nixos" },
-    { id: 8, box: "nixos/nixos-23.11", name: "nixos-2",   distro: "nixos" },
+    { id: 1, box: "ubuntu/jammy64",       name: "ubuntu-1",  distro: "ubuntu" },
+    { id: 2, box: "ubuntu/jammy64",       name: "ubuntu-2",  distro: "ubuntu" },
+    { id: 3, box: "generic/rhel9",        name: "rhel-1",    distro: "rhel" },
+    { id: 4, box: "generic/rhel9",        name: "rhel-2",    distro: "rhel" },
+    { id: 5, box: "bento/fedora-39",      name: "fedora-1",  distro: "fedora" },
+    { id: 6, box: "bento/fedora-39",      name: "fedora-2",  distro: "fedora" },
+    { id: 7, box: "nixos/nixos-23.11",    name: "nixos-1",   distro: "nixos" },
+    { id: 8, box: "nixos/nixos-23.11",    name: "nixos-2",   distro: "nixos" },
   ]
 
   vms.each do |vm|
     config.vm.define "dragon-nuke-#{vm[:name]}" do |node|
       node.vm.box = vm[:box]
       node.vm.hostname = "dragon-nuke-#{vm[:name]}"
+
+      # SSH configuration - fix authentication issues with generic boxes
+      node.ssh.insert_key = true
+      node.ssh.forward_agent = false
+      node.ssh.keep_alive = true
+
+      # Longer timeout for slower boxes
+      node.vm.boot_timeout = 600
 
       # VirtualBox provider settings
       node.vm.provider "virtualbox" do |vb|
@@ -207,29 +215,31 @@ Vagrant.configure("2") do |config|
         chown vagrant:vagrant .env
         chmod 444 .env
 
-        # Kill any existing dragon-nuke processes
-        if [ -f /var/run/dragon-nuke.pid ]; then
-          OLD_PID=$(cat /var/run/dragon-nuke.pid)
-          if ps -p $OLD_PID > /dev/null 2>&1; then
-            echo "Killing old server process (PID: $OLD_PID)..."
-            kill $OLD_PID
-            sleep 2
-          fi
+        # Install systemd service
+        echo "Installing dragon-nuke systemd service..."
+        cp /vagrant/scripts/dragon-nuke-vm.service /etc/systemd/system/dragon-nuke.service
+        systemctl daemon-reload
+
+        # Stop existing service if running
+        if systemctl is-active --quiet dragon-nuke; then
+          echo "Stopping existing dragon-nuke service..."
+          systemctl stop dragon-nuke
         fi
 
-        # Start server as root in background
-        echo "Starting dragon-nuke server as root..."
-        nohup node index.js > /var/log/dragon-nuke.log 2>&1 &
-        echo $! > /var/run/dragon-nuke.pid
+        # Enable and start the service
+        systemctl enable dragon-nuke
+        systemctl start dragon-nuke
 
-        # Health check - wait 5 seconds and verify server is running
-        echo "Waiting 5 seconds for server to start..."
+        # Health check - wait 5 seconds and verify service is running
+        echo "Waiting 5 seconds for service to start..."
         sleep 5
-        if ps -p $(cat /var/run/dragon-nuke.pid) > /dev/null 2>&1; then
-          echo "✓ Server is running with PID: $(cat /var/run/dragon-nuke.pid)"
+        if systemctl is-active --quiet dragon-nuke; then
+          echo "✓ dragon-nuke service is running"
+          systemctl status dragon-nuke --no-pager | head -10
         else
-          echo "✗ Server failed to start. Check logs:"
-          tail -20 /var/log/dragon-nuke.log
+          echo "✗ dragon-nuke service failed to start. Check logs:"
+          journalctl -u dragon-nuke -n 50 --no-pager
+          systemctl status dragon-nuke --no-pager
           exit 1
         fi
 
@@ -244,30 +254,52 @@ Vagrant.configure("2") do |config|
         echo "Running sanity check..."
         sleep 5
 
+        # Check if systemd service is running
+        if ! systemctl is-active --quiet dragon-nuke; then
+          echo "✗ SANITY CHECK FAILED: dragon-nuke service is not running!"
+          echo ""
+          echo "=== Debug Information ==="
+          echo "Service status:"
+          systemctl status dragon-nuke --no-pager
+          echo ""
+          echo "Recent logs:"
+          journalctl -u dragon-nuke -n 50 --no-pager
+          exit 1
+        fi
+
+        # Check process is running with correct arguments
+        echo "Checking process details..."
+        PROCESS_CHECK=$(ps aux | grep 'node.*index.js' | grep -v grep)
+        if [ -z "$PROCESS_CHECK" ]; then
+          echo "✗ SANITY CHECK FAILED: node process not found!"
+          echo ""
+          echo "=== Process List ==="
+          ps aux | grep node
+          exit 1
+        fi
+
+        # Display process info
+        echo "✓ Process running:"
+        echo "$PROCESS_CHECK"
+
+        # Verify process args
+        PID=$(echo "$PROCESS_CHECK" | awk '{print $2}')
+        echo ""
+        echo "Process command line (PID $PID):"
+        cat /proc/$PID/cmdline | tr '\\0' ' '
+        echo ""
+
+        # Check working directory
+        echo "Working directory:"
+        readlink -f /proc/$PID/cwd
+        echo ""
+
         # Check if log file exists
         if [ ! -f /var/log/dragon-nuke.log ]; then
           echo "✗ SANITY CHECK FAILED: /var/log/dragon-nuke.log does not exist!"
           echo ""
           echo "=== Debug Information ==="
-          echo "Process status:"
-          if [ -f /var/run/dragon-nuke.pid ]; then
-            PID=$(cat /var/run/dragon-nuke.pid)
-            echo "PID file exists with value: $PID"
-            if ps -p $PID > /dev/null 2>&1; then
-              echo "Process $PID is running"
-              ps aux | grep $PID | grep -v grep
-            else
-              echo "Process $PID is NOT running"
-            fi
-          else
-            echo "PID file does not exist"
-          fi
-          echo ""
-          echo "Server log (last 30 lines):"
-          tail -30 /var/log/dragon-nuke.log
-          echo ""
-          echo "Available log files:"
-          ls -la /var/log/dragon-*
+          journalctl -u dragon-nuke -n 50 --no-pager
           exit 1
         fi
 
@@ -276,22 +308,19 @@ Vagrant.configure("2") do |config|
           echo "✗ SANITY CHECK FAILED: /var/log/dragon-nuke.log does not contain 'Poll'!"
           echo ""
           echo "=== Debug Information ==="
-          echo "Log file contents:"
-          cat /var/log/dragon-nuke.log
+          echo "Log file contents (last 50 lines):"
+          tail -50 /var/log/dragon-nuke.log
           echo ""
-          echo "Server log (last 30 lines):"
-          tail -30 /var/log/dragon-nuke.log
-          echo ""
-          echo "Process status:"
-          if [ -f /var/run/dragon-nuke.pid ]; then
-            PID=$(cat /var/run/dragon-nuke.pid)
-            echo "PID: $PID"
-            ps aux | grep $PID | grep -v grep
-          fi
+          echo "Journalctl logs:"
+          journalctl -u dragon-nuke -n 50 --no-pager
           exit 1
         fi
 
-        echo "✓ Sanity check passed: /var/log/dragon-nuke.log exists and contains 'Poll'"
+        echo ""
+        echo "✓ All sanity checks passed!"
+        echo "  - Service is active"
+        echo "  - Process running with correct args"
+        echo "  - Log file exists and contains 'Poll'"
       SHELL
     end
   end

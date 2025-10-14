@@ -1,0 +1,22 @@
+[Unit]
+Description=DragonNuke Server - Remote block device wipe listener (VM Test)
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=10
+User=root
+ExecStart=/usr/bin/node /home/vagrant/server-dragon-nuke/index.js
+WorkingDirectory=/home/vagrant/server-dragon-nuke
+Environment=NODE_ENV=production
+EnvironmentFile=/home/vagrant/server-dragon-nuke/.env
+
+# Logging to file for easier debugging in VMs
+StandardOutput=append:/var/log/dragon-nuke.log
+StandardError=append:/var/log/dragon-nuke.log
+SyslogIdentifier=dragon-nuke
+
+[Install]
+WantedBy=multi-user.target
