@@ -6,6 +6,12 @@ set -e
 
 echo "Populating drives with dummy test data..."
 
+# Check if data already exists (idempotent)
+if [ -f /mnt/data1/documents/report.txt ]; then
+  echo "Data already exists, skipping population"
+  exit 0
+fi
+
 # Create a reusable lorem ipsum generator function
 generate_lorem() {
   local size_mb=$1

@@ -6,9 +6,20 @@ set -e
 
 echo "Creating complex mount scenarios..."
 
-# Ensure base directories exist
-mkdir -p /mnt/data1/shared /mnt/data1/readonly-source /mnt/data1/nested
-mkdir -p /mnt/data2/backup
+# Ensure base directories exist (data should already be populated at this point)
+# If directories don't exist, create them
+if [ ! -d /mnt/data1/shared ]; then
+  mkdir -p /mnt/data1/shared
+fi
+if [ ! -d /mnt/data1/readonly-source ]; then
+  mkdir -p /mnt/data1/readonly-source
+fi
+if [ ! -d /mnt/data1/nested ]; then
+  mkdir -p /mnt/data1/nested
+fi
+if [ ! -d /mnt/data2/backup ]; then
+  mkdir -p /mnt/data2/backup
+fi
 
 # Bind mount from data1 to another location
 mkdir -p /mnt/shared-bind
@@ -41,7 +52,7 @@ fi
 mkdir -p /mnt/readonly-bind
 if ! mountpoint -q /mnt/readonly-bind; then
   mount --bind /mnt/data1/readonly-source /mnt/readonly-bind
-  mount -o remount,ro /mnt/readonly-bind
+  mount -o remount,ro,bind /mnt/readonly-bind
   echo "✓ Read-only bind mount: /mnt/data1/readonly-source -> /mnt/readonly-bind"
 fi
 

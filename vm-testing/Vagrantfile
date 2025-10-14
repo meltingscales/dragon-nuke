@@ -64,19 +64,30 @@ Vagrant.configure("2") do |config|
         vb.customize ["modifyvm", :id, "--accelerate2dvideo", "off"]
 
         # Create 2 additional hard drives for testing unmount logic
+        # Different boxes use different storage controllers and port numbering
+        storage_controller = case vm[:distro]
+          when "ubuntu" then "SCSI"
+          when "rhel", "fedora", "nixos" then "SATA Controller"
+          else "SATA Controller"
+        end
+
+        # Port numbers: Ubuntu uses ports 2,3 (0,1 occupied), RHEL/Fedora/NixOS use ports 1,2 (0 occupied)
+        port1 = vm[:distro] == "ubuntu" ? 2 : 1
+        port2 = vm[:distro] == "ubuntu" ? 3 : 2
+
         # Drive 1: 1GB disk for /mnt/data1
         disk1_path = "./disks/dragon-nuke-#{vm[:name]}-disk1.vdi"
         unless File.exist?(disk1_path)
           vb.customize ['createhd', '--filename', disk1_path, '--size', 1024]
         end
-        vb.customize ['storageattach', :id, '--storagectl', 'SCSI', '--port', 2, '--device', 0, '--type', 'hdd', '--medium', disk1_path]
+        vb.customize ['storageattach', :id, '--storagectl', storage_controller, '--port', port1, '--device', 0, '--type', 'hdd', '--medium', disk1_path]
 
         # Drive 2: 2GB disk for /mnt/data2
         disk2_path = "./disks/dragon-nuke-#{vm[:name]}-disk2.vdi"
         unless File.exist?(disk2_path)
           vb.customize ['createhd', '--filename', disk2_path, '--size', 2048]
         end
-        vb.customize ['storageattach', :id, '--storagectl', 'SCSI', '--port', 3, '--device', 0, '--type', 'hdd', '--medium', disk2_path]
+        vb.customize ['storageattach', :id, '--storagectl', storage_controller, '--port', port2, '--device', 0, '--type', 'hdd', '--medium', disk2_path]
       end
 
       # Mount dragon-nuke-key.json as read-only (on separate VirtualBox filesystem, not affected by nuke)
@@ -127,12 +138,17 @@ Vagrant.configure("2") do |config|
 
           rhel)
             echo "Setting up RHEL..."
+            # Disable SELinux temporarily for testing (prevents mount issues)
+            setenforce 0 || true
+            sed -i 's/^SELINUX=enforcing/SELINUX=permissive/' /etc/selinux/config
+
             dnf install -y curl rsync
 
-            # Install Node.js
+            # Install Node.js via NodeSource (module streams are unreliable)
             if ! command -v node &> /dev/null; then
               echo "Installing Node.js..."
-              dnf module install -y nodejs:20
+              curl -fsSL https://rpm.nodesource.com/setup_20.x | bash -
+              dnf install -y nodejs
             fi
             ;;
 
@@ -143,7 +159,8 @@ Vagrant.configure("2") do |config|
             # Install Node.js
             if ! command -v node &> /dev/null; then
               echo "Installing Node.js..."
-              dnf install -y nodejs npm
+              curl -fsSL https://rpm.nodesource.com/setup_20.x | bash -
+              dnf install -y nodejs
             fi
             ;;
 
@@ -163,11 +180,11 @@ Vagrant.configure("2") do |config|
         # Setup additional hard drives
         bash /vagrant/scripts/setup-disks.sh
 
-        # Create complex mount scenarios
-        bash /vagrant/scripts/setup-mounts.sh
-
-        # Populate drives with dummy data
+        # Populate drives with dummy data BEFORE setting up complex mounts
         bash /vagrant/scripts/populate-data.sh
+
+        # Create complex mount scenarios (includes read-only bind mount)
+        bash /vagrant/scripts/setup-mounts.sh
 
         # Display mount information
         echo ""

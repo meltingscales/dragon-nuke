@@ -17,7 +17,10 @@ else
   mkdir -p /mnt/data1
   if ! mountpoint -q /mnt/data1; then
     mount /dev/sdc /mnt/data1
-    echo "/dev/sdc /mnt/data1 ext4 defaults 0 0" >> /etc/fstab
+    # Add to fstab only if not already present
+    if ! grep -q "/dev/sdc.*mnt/data1" /etc/fstab; then
+      echo "/dev/sdc /mnt/data1 ext4 defaults 0 0" >> /etc/fstab
+    fi
   fi
   echo "✓ /dev/sdc mounted at /mnt/data1"
 fi
@@ -33,7 +36,10 @@ else
   mkdir -p /mnt/data2
   if ! mountpoint -q /mnt/data2; then
     mount /dev/sdd /mnt/data2
-    echo "/dev/sdd /mnt/data2 ext4 defaults 0 0" >> /etc/fstab
+    # Add to fstab only if not already present
+    if ! grep -q "/dev/sdd.*mnt/data2" /etc/fstab; then
+      echo "/dev/sdd /mnt/data2 ext4 defaults 0 0" >> /etc/fstab
+    fi
   fi
   echo "✓ /dev/sdd mounted at /mnt/data2"
 fi
