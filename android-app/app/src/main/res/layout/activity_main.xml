@@ -74,10 +74,23 @@
             android:text="dragon-nuke-bucket"
             android:textSize="16sp"
             android:gravity="center"
-            android:layout_marginBottom="32dp"
+            android:layout_marginBottom="16dp"
             android:padding="12dp"
             android:background="@drawable/bucket_background"
             android:fontFamily="monospace" />
+
+        <!-- GCP Connection Status -->
+        <TextView
+            android:id="@+id/tvConnectionStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Checking connection..."
+            android:textSize="14sp"
+            android:gravity="center"
+            android:layout_marginBottom="32dp"
+            android:padding="8dp"
+            android:textColor="@android:color/darker_gray"
+            android:fontFamily="sans-serif-medium" />
 
         <!-- Trigger Button -->
         <Button

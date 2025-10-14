@@ -66,6 +66,9 @@ class MainActivity : AppCompatActivity() {
                 serviceAccountJson = JSONObject(savedJson)
                 val clientEmail = serviceAccountJson?.optString("client_email", "Unknown")
                 Toast.makeText(this, "Restored saved key: $clientEmail", Toast.LENGTH_SHORT).show()
+
+                // Test connection on boot
+                testConnection()
             } catch (e: Exception) {
                 // If saved JSON is corrupted, clear it
                 prefs.edit().remove(KEY_SERVICE_ACCOUNT).apply()
@@ -126,6 +129,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun testConnection() {
+        // Show checking status
+        binding.tvConnectionStatus.text = "🔍 Checking GCP connection..."
+        binding.tvConnectionStatus.setTextColor(getColor(android.R.color.darker_gray))
+
         lifecycleScope.launch {
             try {
                 val connectionWorks = withContext(Dispatchers.IO) {
@@ -144,24 +151,15 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 if (!connectionWorks) {
-                    Toast.makeText(
-                        this@MainActivity,
-                        "⚠️ Warning: Cannot connect to GCP bucket. Check network connection.",
-                        Toast.LENGTH_LONG
-                    ).show()
+                    binding.tvConnectionStatus.text = "⚠️ Cannot connect to GCP bucket. Check network."
+                    binding.tvConnectionStatus.setTextColor(getColor(android.R.color.holo_orange_dark))
                 } else {
-                    Toast.makeText(
-                        this@MainActivity,
-                        "✅ GCP storage connection succeeded",
-                        Toast.LENGTH_SHORT
-                    ).show()
+                    binding.tvConnectionStatus.text = "✅ GCP connection verified"
+                    binding.tvConnectionStatus.setTextColor(getColor(android.R.color.holo_green_dark))
                 }
             } catch (e: Exception) {
-                Toast.makeText(
-                    this@MainActivity,
-                    "⚠️ Warning: Connection test failed: ${e.message}",
-                    Toast.LENGTH_LONG
-                ).show()
+                binding.tvConnectionStatus.text = "⚠️ Connection test failed: ${e.message}"
+                binding.tvConnectionStatus.setTextColor(getColor(android.R.color.holo_orange_dark))
             }
         }
     }
@@ -336,7 +334,7 @@ class MainActivity : AppCompatActivity() {
     private fun updateUI() {
         val hasKey = serviceAccountJson != null
         binding.btnTriggerNuke.isEnabled = hasKey
-        
+
         if (hasKey) {
             val email = serviceAccountJson?.optString("client_email", "Unknown")
             binding.tvKeyStatus.text = "✅ Key loaded: $email"
@@ -344,6 +342,8 @@ class MainActivity : AppCompatActivity() {
         } else {
             binding.tvKeyStatus.text = "No service account key loaded"
             binding.btnLoadKey.text = "📁 Load Service Account Key"
+            binding.tvConnectionStatus.text = "Load a service account key to check connection"
+            binding.tvConnectionStatus.setTextColor(getColor(android.R.color.darker_gray))
         }
     }
 }
