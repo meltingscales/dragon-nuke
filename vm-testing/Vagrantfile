@@ -1,5 +1,30 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
+#
+# Dragon Nuke Testing Environment
+#
+# This Vagrantfile creates 8 VMs with complex mount scenarios to test
+# the unmounting and filesystem nuking logic. Each VM has:
+#
+# Block Devices (will be nuked):
+#   - /dev/sda: Main OS disk (~10GB)
+#   - /dev/sdc: Additional 1GB data disk -> /mnt/data1
+#   - /dev/sdd: Additional 2GB data disk -> /mnt/data2
+#
+# Complex Mount Scenarios (all on local disks, will be nuked):
+#   - /mnt/data1: Primary data mount (ext4 on /dev/sdc)
+#   - /mnt/data2: Secondary data mount (ext4 on /dev/sdd)
+#   - /mnt/shared-bind: Bind mount from /mnt/data1/shared
+#   - /mnt/backup-bind: Bind mount from /mnt/data2/backup
+#   - /mnt/data1/nested: Nested bind mount of /mnt/data2
+#   - /mnt/readonly-bind: Read-only bind mount
+#   - /mnt/tmpfs-cache: tmpfs mount (memory-based)
+#
+# Safe Mounts (VirtualBox shared folders, will NOT be nuked):
+#   - /vagrant/keys: Read-only mount of host ~/keys
+#   - /vagrant/server-dragon-nuke-ro: Read-only mount of server code
+#
+# All VM data is copied to local disks so nuking won't affect host files.
 
 Vagrant.configure("2") do |config|
   # Define 8 VMs
@@ -15,23 +40,45 @@ Vagrant.configure("2") do |config|
         vb.name = "dragon-nuke-vm-#{i}"
         vb.memory = "1024"  # 1GB RAM
         vb.cpus = 1
+
+        # Create 2 additional hard drives for testing unmount logic
+        # Drive 1: 1GB disk for /mnt/data1
+        disk1_path = "./disks/dragon-nuke-vm-#{i}-disk1.vdi"
+        unless File.exist?(disk1_path)
+          vb.customize ['createhd', '--filename', disk1_path, '--size', 1024]
+        end
+        vb.customize ['storageattach', :id, '--storagectl', 'SCSI', '--port', 2, '--device', 0, '--type', 'hdd', '--medium', disk1_path]
+
+        # Drive 2: 2GB disk for /mnt/data2
+        disk2_path = "./disks/dragon-nuke-vm-#{i}-disk2.vdi"
+        unless File.exist?(disk2_path)
+          vb.customize ['createhd', '--filename', disk2_path, '--size', 2048]
+        end
+        vb.customize ['storageattach', :id, '--storagectl', 'SCSI', '--port', 3, '--device', 0, '--type', 'hdd', '--medium', disk2_path]
       end
 
-      # Mount dragon-nuke-key.json as read-only
+      # Mount dragon-nuke-key.json as read-only (on separate VirtualBox filesystem, not affected by nuke)
       node.vm.synced_folder File.expand_path("~/keys"),
                            "/vagrant/keys",
                            mount_options: ["ro"],
                            owner: "vagrant",
                            group: "vagrant"
 
-      # Mount server-dragon-nuke directory (writable copy needed for node_modules)
+      # Mount server-dragon-nuke directory as read-only (on separate VirtualBox filesystem, not affected by nuke)
       node.vm.synced_folder File.expand_path("../server-dragon-nuke"),
                            "/vagrant/server-dragon-nuke-ro",
                            mount_options: ["ro"],
                            owner: "vagrant",
                            group: "vagrant"
 
-      # Mount .env file as read-only
+      # Mount provisioning scripts as read-only
+      node.vm.synced_folder File.expand_path("./scripts"),
+                           "/vagrant/scripts",
+                           mount_options: ["ro"],
+                           owner: "vagrant",
+                           group: "vagrant"
+
+      # Copy .env file (will be copied to local disk during provisioning)
       node.vm.provision "file", source: File.expand_path("../server-dragon-nuke/.env"),
                                 destination: "/tmp/.env.ro"
 
@@ -61,6 +108,21 @@ Vagrant.configure("2") do |config|
           echo "Installing just..."
           curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --to /usr/local/bin
         fi
+
+        # Setup additional hard drives
+        bash /vagrant/scripts/setup-disks.sh
+
+        # Create complex mount scenarios
+        bash /vagrant/scripts/setup-mounts.sh
+
+        # Populate drives with dummy data
+        bash /vagrant/scripts/populate-data.sh
+
+        # Display mount information
+        echo ""
+        echo "=== Mount Configuration ==="
+        mount | grep -E '/mnt|/vagrant' | sort
+        echo ""
 
         # Copy server code to writable location
         mkdir -p /home/vagrant/server-dragon-nuke

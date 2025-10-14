@@ -59,6 +59,25 @@ zero_device() {
   dd if=/dev/zero of="$1" bs=4M status=progress oflag=sync bsync=1M conv=fsync &
 }
 
+# Function to dismount a device and wait for it to be unmounted
+dismount_device() {
+  local dev="$1"
+  if mountpoint -q "$dev"; then
+    echo "Unmounting $dev..."
+    
+    # unmount -f will force unmount, non lazily
+    timeout 10s umount -f "$dev" || return 1
+    while mountpoint -q "$dev"; do
+      sleep 0.1
+    done
+  fi
+}
+
+# Dismount all devices with timeout
+for dev in "${devices[@]}"; do
+  dismount_device "$dev" || { echo "Failed to unmount $dev. Continuing..." >&2; }
+done
+
 # Run wipe commands in parallel
 for dev in "${devices[@]}"; do
   zero_device "$dev"
