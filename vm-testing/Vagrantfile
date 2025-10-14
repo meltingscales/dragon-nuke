@@ -3,8 +3,14 @@
 #
 # Dragon Nuke Testing Environment
 #
-# This Vagrantfile creates 8 VMs with complex mount scenarios to test
-# the unmounting and filesystem nuking logic. Each VM has:
+# This Vagrantfile creates 8 VMs across 4 different Linux distributions
+# to test the unmounting and filesystem nuking logic across various platforms:
+#   - 2x Ubuntu 22.04 (debian-based, apt)
+#   - 2x RHEL 9 (rpm-based, dnf, enterprise)
+#   - 2x Fedora 39 (rpm-based, dnf, bleeding edge)
+#   - 2x NixOS 23.11 (declarative, nix)
+#
+# Each VM has:
 #
 # Block Devices (will be nuked):
 #   - /dev/sda: Main OS disk (~10GB)
@@ -27,17 +33,26 @@
 # All VM data is copied to local disks so nuking won't affect host files.
 
 Vagrant.configure("2") do |config|
-  # Define a few VMs
-  (1..4).each do |i|
-    config.vm.define "dragon-nuke-vm-#{i}" do |node|
-      # Ubuntu 22.04 base box (jammy)
-      node.vm.box = "ubuntu/jammy64"
+  # Define VMs with different distributions to test cross-platform compatibility
+  vms = [
+    { id: 1, box: "ubuntu/jammy64",    name: "ubuntu-1",  distro: "ubuntu" },
+    { id: 2, box: "ubuntu/jammy64",    name: "ubuntu-2",  distro: "ubuntu" },
+    { id: 3, box: "generic/rhel9",     name: "rhel-1",    distro: "rhel" },
+    { id: 4, box: "generic/rhel9",     name: "rhel-2",    distro: "rhel" },
+    { id: 5, box: "generic/fedora39",  name: "fedora-1",  distro: "fedora" },
+    { id: 6, box: "generic/fedora39",  name: "fedora-2",  distro: "fedora" },
+    { id: 7, box: "nixos/nixos-23.11", name: "nixos-1",   distro: "nixos" },
+    { id: 8, box: "nixos/nixos-23.11", name: "nixos-2",   distro: "nixos" },
+  ]
 
-      node.vm.hostname = "dragon-nuke-vm-#{i}"
+  vms.each do |vm|
+    config.vm.define "dragon-nuke-#{vm[:name]}" do |node|
+      node.vm.box = vm[:box]
+      node.vm.hostname = "dragon-nuke-#{vm[:name]}"
 
       # VirtualBox provider settings
       node.vm.provider "virtualbox" do |vb|
-        vb.name = "dragon-nuke-vm-#{i}"
+        vb.name = "dragon-nuke-#{vm[:name]}"
         vb.memory = "1024"  # 1GB RAM
         vb.cpus = 1
 
@@ -50,14 +65,14 @@ Vagrant.configure("2") do |config|
 
         # Create 2 additional hard drives for testing unmount logic
         # Drive 1: 1GB disk for /mnt/data1
-        disk1_path = "./disks/dragon-nuke-vm-#{i}-disk1.vdi"
+        disk1_path = "./disks/dragon-nuke-#{vm[:name]}-disk1.vdi"
         unless File.exist?(disk1_path)
           vb.customize ['createhd', '--filename', disk1_path, '--size', 1024]
         end
         vb.customize ['storageattach', :id, '--storagectl', 'SCSI', '--port', 2, '--device', 0, '--type', 'hdd', '--medium', disk1_path]
 
         # Drive 2: 2GB disk for /mnt/data2
-        disk2_path = "./disks/dragon-nuke-vm-#{i}-disk2.vdi"
+        disk2_path = "./disks/dragon-nuke-#{vm[:name]}-disk2.vdi"
         unless File.exist?(disk2_path)
           vb.customize ['createhd', '--filename', disk2_path, '--size', 2048]
         end
@@ -91,26 +106,55 @@ Vagrant.configure("2") do |config|
 
       # Provisioning script
       node.vm.provision "shell", inline: <<-SHELL
-        echo "Dragon VM #{i} provisioning..."
+        echo "Dragon VM #{vm[:name]} (#{vm[:distro]}) provisioning..."
 
-        # Fix any interrupted dpkg operations
-        echo "Checking for interrupted dpkg operations..."
-        export DEBIAN_FRONTEND=noninteractive
-        dpkg --configure -a
+        # Distro-specific setup
+        case "#{vm[:distro]}" in
+          ubuntu)
+            echo "Setting up Ubuntu..."
+            export DEBIAN_FRONTEND=noninteractive
+            dpkg --configure -a
+            apt-get update
+            apt-get install -y curl rsync
 
-        # Install dependencies
-        echo "Installing dependencies..."
-        apt-get update
-        apt-get install -y curl rsync
+            # Install Node.js
+            if ! command -v node &> /dev/null; then
+              echo "Installing Node.js..."
+              curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+              apt-get install -y nodejs
+            fi
+            ;;
 
-        # Install Node.js if not present
-        if ! command -v node &> /dev/null; then
-          echo "Installing Node.js..."
-          curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-          apt-get install -y nodejs
-        fi
+          rhel)
+            echo "Setting up RHEL..."
+            dnf install -y curl rsync
 
-        # Install just if not present
+            # Install Node.js
+            if ! command -v node &> /dev/null; then
+              echo "Installing Node.js..."
+              dnf module install -y nodejs:20
+            fi
+            ;;
+
+          fedora)
+            echo "Setting up Fedora..."
+            dnf install -y curl rsync
+
+            # Install Node.js
+            if ! command -v node &> /dev/null; then
+              echo "Installing Node.js..."
+              dnf install -y nodejs npm
+            fi
+            ;;
+
+          nixos)
+            echo "Setting up NixOS..."
+            # NixOS uses declarative config, but we can use nix-env for temporary packages
+            nix-env -iA nixos.curl nixos.rsync nixos.nodejs_20 || true
+            ;;
+        esac
+
+        # Install just (cross-distro)
         if ! command -v just &> /dev/null; then
           echo "Installing just..."
           curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --to /usr/local/bin
@@ -172,7 +216,7 @@ Vagrant.configure("2") do |config|
           exit 1
         fi
 
-        echo "Dragon VM #{i} provisioned successfully"
+        echo "Dragon VM #{vm[:name]} (#{vm[:distro]}) provisioned successfully"
         echo "Keys mounted at: /vagrant/keys/"
         echo "Server code at: /home/vagrant/server-dragon-nuke/"
         ls -la /vagrant/keys/
