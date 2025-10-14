@@ -174,32 +174,40 @@ Vagrant.configure("2") do |config|
           arch)
             echo "Setting up Arch Linux..."
 
-            # Refresh mirrorlist and clear cache to avoid 404 errors from stale box
-            echo "Refreshing mirrorlist and clearing package cache..."
-            rm -rf /var/cache/pacman/pkg/*
+            # Refresh mirrorlist to avoid 404 errors from stale box
+            echo "Refreshing mirrorlist..."
             curl -s "https://archlinux.org/mirrorlist/?country=US&protocol=https&use_mirror_status=on" | sed -e 's/^#Server/Server/' -e '/^#/d' > /etc/pacman.d/mirrorlist.new
             if [ -s /etc/pacman.d/mirrorlist.new ]; then
               mv /etc/pacman.d/mirrorlist.new /etc/pacman.d/mirrorlist
             fi
 
-            # Update package database and upgrade all packages (Arch is rolling release)
-            echo "Updating package database and upgrading packages..."
+            # Initialize and update keyrings first
+            echo "Updating keyrings..."
+            pacman-key --init
+            pacman-key --populate archlinux
+
+            # Add the missing key that's needed for package verification
+            echo "Adding required PGP keys..."
+            pacman-key --recv-keys F05E8C12131AEB5E --keyserver keyserver.ubuntu.com || echo "Warning: key import failed"
+            pacman-key --lsign-key F05E8C12131AEB5E || echo "Warning: key signing failed"
+
+            pacman -Sy --noconfirm archlinux-keyring || echo "Warning: keyring update failed"
+
+            # Now try full system upgrade
+            echo "Upgrading system packages..."
             pacman -Syu --noconfirm || {
-              echo "Warning: Full upgrade failed, trying to continue anyway..."
+              echo "Warning: Full upgrade failed, continuing with base system..."
+              # Clear package cache and try to recover
+              rm -rf /var/cache/pacman/pkg/*
+              pacman -Sy --noconfirm
             }
 
-            # Skip base-devel for now (too many dependencies with outdated box)
-            echo "Installing essential packages..."
-            pacman -S --noconfirm curl rsync || echo "Warning: Some packages may have failed"
-
-            # Install Node.js
-            if ! command -v node &> /dev/null; then
-              echo "Installing Node.js..."
-              pacman -S --noconfirm nodejs npm || {
-                echo "ERROR: Failed to install Node.js"
-                exit 1
-              }
-            fi
+            # Install required packages (Node.js and npm should already be in base box, just upgrade)
+            echo "Installing/upgrading required packages..."
+            pacman -S --noconfirm nodejs npm curl rsync || {
+              echo "ERROR: Failed to install required packages"
+              exit 1
+            }
             ;;
         esac
 
