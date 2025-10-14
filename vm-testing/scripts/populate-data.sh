@@ -30,37 +30,37 @@ generate_lorem() {
 
 # Data1 - Various file types and structures
 echo "Populating /mnt/data1..."
-mkdir -p /mnt/data1/documents /mnt/data1/images /mnt/data1/databases
+mkdir -p /mnt/data1/documents /mnt/data1/images /mnt/data1/databases /mnt/data1/shared /mnt/data1/readonly-source
 
 echo "Important document content - Project Report 2025" > /mnt/data1/documents/report.txt
 cat >> /mnt/data1/documents/report.txt << 'EOFR'
 This is a comprehensive report on the Dragon Nuke testing infrastructure.
 It contains important information about system architecture and deployment.
 EOFR
-generate_lorem 100 /mnt/data1/documents/report.txt
+generate_lorem 50 /mnt/data1/documents/report.txt
 
 echo '{"server": "dragon-nuke-vm", "version": "1.0", "config": "production"}' > /mnt/data1/documents/config.json
 
-generate_lorem 150 /mnt/data1/images/photo1.txt
-generate_lorem 150 /mnt/data1/images/photo2.txt
+generate_lorem 50 /mnt/data1/images/photo1.txt
+generate_lorem 50 /mnt/data1/images/photo2.txt
 
 echo "Database records for user management system" > /mnt/data1/databases/records.db
-generate_lorem 200 /mnt/data1/databases/large.db
+generate_lorem 100 /mnt/data1/databases/large.db
 
 # Data1 shared (for bind mount)
 echo "Populating /mnt/data1/shared (bind mount source)..."
 echo "Shared file 1 - Team collaboration document" > /mnt/data1/shared/shared1.txt
-generate_lorem 100 /mnt/data1/shared/shared1.txt
+generate_lorem 50 /mnt/data1/shared/shared1.txt
 
 echo "Shared file 2 - Project specifications" > /mnt/data1/shared/shared2.txt
-generate_lorem 100 /mnt/data1/shared/shared2.txt
+generate_lorem 50 /mnt/data1/shared/shared2.txt
 
-generate_lorem 250 /mnt/data1/shared/largefile.txt
+generate_lorem 100 /mnt/data1/shared/largefile.txt
 
 # Data1 readonly source
 echo "Populating /mnt/data1/readonly-source..."
 echo "Read-only configuration data - DO NOT MODIFY" > /mnt/data1/readonly-source/readonly.txt
-generate_lorem 50 /mnt/data1/readonly-source/readonly.txt
+generate_lorem 20 /mnt/data1/readonly-source/readonly.txt
 
 echo "[protected]" > /mnt/data1/readonly-source/protected.conf
 echo "encryption=enabled" >> /mnt/data1/readonly-source/protected.conf
@@ -68,32 +68,32 @@ echo "backup=daily" >> /mnt/data1/readonly-source/protected.conf
 
 # Data2 - Backup and archive data
 echo "Populating /mnt/data2..."
-mkdir -p /mnt/data2/archives /mnt/data2/logs
+mkdir -p /mnt/data2/archives /mnt/data2/logs /mnt/data2/backup
 
 echo "Archive 1 - Historical data from 2024" > /mnt/data2/archives/archive1.tar
-generate_lorem 150 /mnt/data2/archives/archive1.tar
+generate_lorem 50 /mnt/data2/archives/archive1.tar
 
 echo "Archive 2 - Backup snapshots" > /mnt/data2/archives/archive2.tar
-generate_lorem 150 /mnt/data2/archives/archive2.tar
+generate_lorem 50 /mnt/data2/archives/archive2.tar
 
-generate_lorem 300 /mnt/data2/archives/bigarchive.tar
+generate_lorem 100 /mnt/data2/archives/bigarchive.tar
 
 # Generate realistic log files
 echo "Generating log files..."
-for i in {1..1000}; do
+for i in {1..100}; do
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] INFO: Application event $i - Processing request from user$(( RANDOM % 100 ))" >> /mnt/data2/logs/app.log
 done
-generate_lorem 100 /mnt/data2/logs/system.log
+generate_lorem 50 /mnt/data2/logs/system.log
 
 # Data2 backup (for bind mount)
 echo "Populating /mnt/data2/backup (bind mount source)..."
 echo "Backup file 1 - Weekly backup" > /mnt/data2/backup/backup1.bak
-generate_lorem 100 /mnt/data2/backup/backup1.bak
+generate_lorem 50 /mnt/data2/backup/backup1.bak
 
 echo "Backup file 2 - Monthly snapshot" > /mnt/data2/backup/backup2.bak
-generate_lorem 100 /mnt/data2/backup/backup2.bak
+generate_lorem 50 /mnt/data2/backup/backup2.bak
 
-generate_lorem 200 /mnt/data2/backup/fullbackup.bak
+generate_lorem 100 /mnt/data2/backup/fullbackup.bak
 
 # tmpfs - Temporary cache data (smaller since it's memory-based)
 echo "Populating /mnt/tmpfs-cache..."

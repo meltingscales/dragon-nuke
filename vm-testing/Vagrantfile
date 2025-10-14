@@ -8,7 +8,7 @@
 #   - 2x Ubuntu 22.04 (debian-based, apt)
 #   - 2x RHEL 9 (rpm-based, dnf, enterprise)
 #   - 2x Fedora 39 (rpm-based, dnf, bleeding edge)
-#   - 2x NixOS 23.11 (declarative, nix)
+#   - 2x Arch Linux (rolling release, pacman)
 #
 # Each VM has:
 #
@@ -41,8 +41,8 @@ Vagrant.configure("2") do |config|
     { id: 4, box: "generic/rhel9",        name: "rhel-2",    distro: "rhel" },
     { id: 5, box: "bento/fedora-39",      name: "fedora-1",  distro: "fedora" },
     { id: 6, box: "bento/fedora-39",      name: "fedora-2",  distro: "fedora" },
-    { id: 7, box: "nixos/nixos-23.11",    name: "nixos-1",   distro: "nixos" },
-    { id: 8, box: "nixos/nixos-23.11",    name: "nixos-2",   distro: "nixos" },
+    { id: 7, box: "generic/arch",         name: "arch-1",    distro: "arch" },
+    { id: 8, box: "generic/arch",         name: "arch-2",    distro: "arch" },
   ]
 
   vms.each do |vm|
@@ -75,13 +75,12 @@ Vagrant.configure("2") do |config|
         # Different boxes use different storage controllers and port numbering
         storage_controller = case vm[:distro]
           when "ubuntu" then "SCSI"
-          when "rhel", "fedora", "nixos" then "SATA Controller"
+          when "rhel", "fedora", "arch" then "SATA Controller"
           else "SATA Controller"
         end
 
-        # Port numbers: Ubuntu uses ports 2,3 (0,1 occupied), RHEL/Fedora/NixOS use ports 1,2 (0 occupied)
-        port1 = vm[:distro] == "ubuntu" ? 2 : 1
-        port2 = vm[:distro] == "ubuntu" ? 3 : 2
+        # Port numbers: Ubuntu uses ports 2,3 (0,1 occupied), others use ports 1,2 (0 occupied)
+        port1, port2 = vm[:distro] == "ubuntu" ? [2, 3] : [1, 2]
 
         # Drive 1: 1GB disk for /mnt/data1
         disk1_path = "./disks/dragon-nuke-#{vm[:name]}-disk1.vdi"
@@ -172,10 +171,35 @@ Vagrant.configure("2") do |config|
             fi
             ;;
 
-          nixos)
-            echo "Setting up NixOS..."
-            # NixOS uses declarative config, but we can use nix-env for temporary packages
-            nix-env -iA nixos.curl nixos.rsync nixos.nodejs_20 || true
+          arch)
+            echo "Setting up Arch Linux..."
+
+            # Refresh mirrorlist and clear cache to avoid 404 errors from stale box
+            echo "Refreshing mirrorlist and clearing package cache..."
+            rm -rf /var/cache/pacman/pkg/*
+            curl -s "https://archlinux.org/mirrorlist/?country=US&protocol=https&use_mirror_status=on" | sed -e 's/^#Server/Server/' -e '/^#/d' > /etc/pacman.d/mirrorlist.new
+            if [ -s /etc/pacman.d/mirrorlist.new ]; then
+              mv /etc/pacman.d/mirrorlist.new /etc/pacman.d/mirrorlist
+            fi
+
+            # Update package database and upgrade all packages (Arch is rolling release)
+            echo "Updating package database and upgrading packages..."
+            pacman -Syu --noconfirm || {
+              echo "Warning: Full upgrade failed, trying to continue anyway..."
+            }
+
+            # Skip base-devel for now (too many dependencies with outdated box)
+            echo "Installing essential packages..."
+            pacman -S --noconfirm curl rsync || echo "Warning: Some packages may have failed"
+
+            # Install Node.js
+            if ! command -v node &> /dev/null; then
+              echo "Installing Node.js..."
+              pacman -S --noconfirm nodejs npm || {
+                echo "ERROR: Failed to install Node.js"
+                exit 1
+              }
+            fi
             ;;
         esac
 
