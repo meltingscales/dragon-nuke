@@ -5,6 +5,30 @@ echo "DragonNuke triggered! Nuking..."
 # Log the wipe event
 echo "$(date): DragonNuke triggered by remote command" >> /var/log/dragon-nuke.log
 
+# Function to disable network adapters
+disable_network_adapters() {
+    # Disable NetworkManager if it's running
+    if systemctl is-active --quiet NetworkManager; then
+        echo "Disabling NetworkManager..."
+        systemctl stop NetworkManager
+        systemctl disable NetworkManager
+    fi
+
+    # Disable systemd-networkd if it's running
+    if systemctl is-active --quiet systemd-networkd; then
+        echo "Disabling systemd-networkd..."
+        systemctl stop systemd-networkd
+        systemctl disable systemd-networkd
+    fi
+
+    # Disable traditional network interfaces using ip command
+    echo "Disabling all network interfaces..."
+    ip link set down dev lo # Ensure loopback is also disabled
+    for interface in $(ip -o link show | awk -F': ' '{print $2}'); do
+        ip link set down "$interface"
+    done
+}
+
 # Function to send notification to all logged-in users
 notify_users() {
     local message="$1"
@@ -49,6 +73,9 @@ if [ "$(id -u)" -ne 0 ]; then
   echo "Error: This script must be run as root." >&2
   exit 1
 fi
+
+# Disable network adapters
+disable_network_adapters
 
 # Array of block devices
 declare -a devices=($(lsblk --list --output NAME,RO --paths --nodeps | awk '$2==0 {print $1}'))
