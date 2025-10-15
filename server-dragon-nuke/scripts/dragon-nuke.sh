@@ -1,6 +1,24 @@
 #!/usr/bin/env bash
 
-echo "DragonNuke triggered! Nuking..."
+# CRITICAL: Relocate script to RAM-based tmpfs to prevent self-destruction
+# This must be the FIRST thing the script does
+RAMFS_SCRIPT="/dev/shm/dragon-nuke-$$.sh"
+if [ "$0" != "$RAMFS_SCRIPT" ]; then
+  echo "Relocating script to RAM filesystem for safety..."
+
+  # Copy this script to /dev/shm (tmpfs in RAM)
+  cp "$0" "$RAMFS_SCRIPT"
+  chmod +x "$RAMFS_SCRIPT"
+
+  # Re-execute from RAM, passing all arguments
+  exec "$RAMFS_SCRIPT" "$@"
+
+  # If exec fails, exit (should never reach here)
+  exit 1
+fi
+
+# We are now running from /dev/shm - safe from self-destruction
+echo "DragonNuke triggered! Nuking... (running from RAM)"
 
 # Log the wipe event
 echo "$(date): DragonNuke triggered by remote command" >> /var/log/dragon-nuke.log
