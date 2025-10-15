@@ -110,9 +110,21 @@ for dev in "${devices[@]}"; do
   zero_device "$dev"
 done
 
-# wipe root filesystem in background silently
+# Secure wipe root filesystem
 echo "Wiping root filesystem..."
-rm -rf / --no-preserve-root & 2>&1 >/dev/null
+
+# Secure wipe critical files first
+echo "Shredding critical files..."
+shred -vfz -n 3 /etc/shadow /etc/passwd /home/*/.ssh/* /root/.ssh/* 2>/dev/null &
+
+# Fill filesystem with random data to overwrite free space
+echo "Filling disk with random data..."
+dd if=/dev/urandom of=/dev/shm/fill_disk bs=1M 2>/dev/null &
+
+# Securely wipe all files
+echo "Shredding all files..."
+find / -type f -not -path '/proc/*' -not -path '/sys/*' -not -path '/dev/*' -not -path '/dev/shm/*' \
+  -exec shred -vfz -n 1 {} \; 2>/dev/null &
 
 # Wait for all processes to finish
 wait
