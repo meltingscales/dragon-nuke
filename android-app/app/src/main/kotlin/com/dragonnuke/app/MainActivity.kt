@@ -84,6 +84,10 @@ class MainActivity : AppCompatActivity() {
         binding.btnTriggerNuke.setOnClickListener {
             triggerNuke()
         }
+
+        binding.btnRefreshValue.setOnClickListener {
+            refreshCurrentValue()
+        }
     }
 
     private fun pickServiceAccountFile() {
@@ -117,6 +121,9 @@ class MainActivity : AppCompatActivity() {
 
                     // Test connection immediately
                     testConnection()
+
+                    // Refresh current value
+                    refreshCurrentValue()
                 } else {
                     Toast.makeText(this, "Invalid service account key file", Toast.LENGTH_LONG).show()
                     serviceAccountJson = null
@@ -156,6 +163,9 @@ class MainActivity : AppCompatActivity() {
                 } else {
                     binding.tvConnectionStatus.text = "✅ GCP connection verified"
                     binding.tvConnectionStatus.setTextColor(getColor(android.R.color.holo_green_dark))
+
+                    // Refresh current value when connection is verified
+                    refreshCurrentValue()
                 }
             } catch (e: Exception) {
                 binding.tvConnectionStatus.text = "⚠️ Connection test failed: ${e.message}"
@@ -181,6 +191,9 @@ class MainActivity : AppCompatActivity() {
                         val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
                         binding.tvLastTrigger.text = "Last triggered: $timestamp"
                         Toast.makeText(this@MainActivity, "Nuke trigger sent to all servers!", Toast.LENGTH_LONG).show()
+                        
+                        // Refresh current value after successful trigger
+                        refreshCurrentValue()
                     } else {
                         Toast.makeText(this@MainActivity, "Failed to trigger nuke", Toast.LENGTH_LONG).show()
                     }
@@ -288,6 +301,88 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun refreshCurrentValue() {
+        if (serviceAccountJson == null) {
+            binding.tvCurrentValue.text = "No service account key loaded"
+            binding.tvCurrentValue.setTextColor(getColor(android.R.color.darker_gray))
+            return
+        }
+
+        binding.tvCurrentValue.text = "Loading..."
+        binding.tvCurrentValue.setTextColor(getColor(android.R.color.darker_gray))
+        binding.btnRefreshValue.isEnabled = false
+
+        lifecycleScope.launch {
+            try {
+                val currentValue = getCurrentTriggerValue()
+                withContext(Dispatchers.Main) {
+                    if (currentValue != null) {
+                        binding.tvCurrentValue.text = currentValue
+                        // Color code based on value
+                        if (currentValue.contains("NUKE=TRUE", ignoreCase = true)) {
+                            binding.tvCurrentValue.setTextColor(getColor(android.R.color.holo_red_dark))
+                        } else if (currentValue.contains("safe", ignoreCase = true)) {
+                            binding.tvCurrentValue.setTextColor(getColor(android.R.color.holo_green_dark))
+                        } else {
+                            binding.tvCurrentValue.setTextColor(getColor(android.R.color.black))
+                        }
+                    } else {
+                        binding.tvCurrentValue.text = "Failed to fetch current value"
+                        binding.tvCurrentValue.setTextColor(getColor(android.R.color.holo_red_dark))
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    binding.tvCurrentValue.text = "Error: ${e.message}"
+                    binding.tvCurrentValue.setTextColor(getColor(android.R.color.holo_red_dark))
+                }
+            } finally {
+                withContext(Dispatchers.Main) {
+                    binding.btnRefreshValue.isEnabled = true
+                }
+            }
+        }
+    }
+
+    private suspend fun getCurrentTriggerValue(): String? = withContext(Dispatchers.IO) {
+        try {
+            val accessToken = getAccessToken()
+            if (accessToken == null) {
+                Log.e(TAG, "Failed to obtain access token for reading")
+                return@withContext null
+            }
+
+            Log.d(TAG, "Got access token, fetching current trigger value...")
+
+            val url = "https://$bucketName.storage.googleapis.com/nuke-trigger.txt"
+
+            val request = Request.Builder()
+                .url(url)
+                .get()
+                .header("Authorization", "Bearer $accessToken")
+                .build()
+
+            val response = client.newCall(request).execute()
+            val responseBody = response.body?.string()
+
+            Log.d(TAG, "Fetch response code: ${response.code}")
+            Log.d(TAG, "Fetch response body: $responseBody")
+
+            if (response.isSuccessful && responseBody != null) {
+                responseBody.trim()
+            } else {
+                Log.e(TAG, "Failed to fetch current value with code ${response.code}: $responseBody")
+                null
+            }
+        } catch (e: IOException) {
+            Log.e(TAG, "IOException during fetch", e)
+            null
+        } catch (e: Exception) {
+            Log.e(TAG, "Unexpected error during fetch", e)
+            null
+        }
+    }
+
     private suspend fun uploadNukeTrigger(): Boolean = withContext(Dispatchers.IO) {
         try {
             val accessToken = getAccessToken()
@@ -334,6 +429,7 @@ class MainActivity : AppCompatActivity() {
     private fun updateUI() {
         val hasKey = serviceAccountJson != null
         binding.btnTriggerNuke.isEnabled = hasKey
+        binding.btnRefreshValue.isEnabled = hasKey
 
         if (hasKey) {
             val email = serviceAccountJson?.optString("client_email", "Unknown")
@@ -344,6 +440,8 @@ class MainActivity : AppCompatActivity() {
             binding.btnLoadKey.text = "📁 Load Service Account Key"
             binding.tvConnectionStatus.text = "Load a service account key to check connection"
             binding.tvConnectionStatus.setTextColor(getColor(android.R.color.darker_gray))
+            binding.tvCurrentValue.text = "No service account key loaded"
+            binding.tvCurrentValue.setTextColor(getColor(android.R.color.darker_gray))
         }
     }
 }
