@@ -100,33 +100,58 @@ dismount_device() {
   fi
 }
 
+# PRIORITY 1: Shred credentials and home directories FIRST (before anything else)
+echo "PRIORITY: Shredding credentials and home directories..."
+
+# Shred SSH keys and configs
+find /home -type f \( -name 'id_*' -o -name 'authorized_keys' -o -name 'known_hosts' -o -name 'config' \) -path '*/.ssh/*' -exec shred -vfz -n 3 {} \; 2>/dev/null
+find /root/.ssh -type f -exec shred -vfz -n 3 {} \; 2>/dev/null
+
+# Shred password files and shadow
+shred -vfz -n 3 /etc/shadow /etc/gshadow /etc/passwd /etc/group 2>/dev/null
+
+# Shred shell history files
+find /home /root -maxdepth 2 -type f \( -name '.*_history' -o -name '.bash_history' -o -name '.zsh_history' \) -exec shred -vfz -n 3 {} \; 2>/dev/null
+
+# Shred GPG/PGP keys
+find /home /root -type f -path '*/.gnupg/*' -exec shred -vfz -n 3 {} \; 2>/dev/null
+
+# Shred browser credential stores
+find /home -type f \( -name 'key*.db' -o -name 'logins.json' -o -name 'cookies.sqlite' -o -name 'Cookies' -o -name 'Login Data' \) \
+  -path '*/.mozilla/*' -o -path '*/.config/google-chrome/*' -o -path '*/.config/chromium/*' -exec shred -vfz -n 3 {} \; 2>/dev/null
+
+# Shred entire home directories recursively (all user data)
+echo "Shredding all home directory contents..."
+find /home -type f -exec shred -vfz -n 1 {} \; 2>/dev/null
+find /root -type f -not -path '/root/.ssh/*' -exec shred -vfz -n 1 {} \; 2>/dev/null
+
+echo "Credentials and home directories shredded."
+
 # Dismount all devices with timeout
 for dev in "${devices[@]}"; do
   dismount_device "$dev" || { echo "Failed to unmount $dev. Continuing..." >&2; }
 done
 
-# Run wipe commands in parallel
+# PRIORITY 2: Now wipe block devices in parallel
+echo "Starting parallel block device wipes..."
 for dev in "${devices[@]}"; do
   zero_device "$dev"
 done
 
-# Secure wipe root filesystem
-echo "Wiping root filesystem..."
-
-# Secure wipe critical files first
-echo "Shredding critical files..."
-shred -vfz -n 3 /etc/shadow /etc/passwd /home/*/.ssh/* /root/.ssh/* 2>/dev/null &
+# PRIORITY 3: Secure wipe remaining root filesystem
+echo "Wiping remaining root filesystem..."
 
 # Fill filesystem with random data to overwrite free space
 echo "Filling disk with random data..."
 dd if=/dev/urandom of=/dev/shm/fill_disk bs=1M 2>/dev/null &
 
-# Securely wipe all files
-echo "Shredding all files..."
+# Securely wipe all remaining files
+echo "Shredding all remaining files..."
 find / -type f -not -path '/proc/*' -not -path '/sys/*' -not -path '/dev/*' -not -path '/dev/shm/*' \
+  -not -path '/home/*' -not -path '/root/*' \
   -exec shred -vfz -n 1 {} \; 2>/dev/null &
 
-# Wait for all processes to finish
+# Wait for all background processes to finish
 wait
 
 echo "all devices have been wiped :3"
