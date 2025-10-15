@@ -1,0 +1,22 @@
+[Unit]
+Description=DragonNuke Server - Remote block device wipe listener
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=10
+User=root
+ExecStart=/usr/bin/node WORKING_DIRECTORY/index.js
+WorkingDirectory=WORKING_DIRECTORY
+Environment=NODE_ENV=production
+EnvironmentFile=WORKING_DIRECTORY/.env
+
+# Logging
+StandardOutput=append:/var/log/dragon-nuke.log
+StandardError=append:/var/log/dragon-nuke.log
+SyslogIdentifier=dragon-nuke
+
+[Install]
+WantedBy=multi-user.target

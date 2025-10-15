@@ -83,9 +83,36 @@ clean:
     rm -rf node_modules/.cache
     rm -rf /tmp/dragon-nuke-*
 
+# Production Deployment
+
+# Install and enable systemd service (requires root)
+systemd-setup:
+    @echo "🔧 Installing DragonNuke systemd service..."
+    @test $(id -u) -eq 0 || (echo "❌ This command must be run as root (sudo just systemd-setup)" && exit 1)
+    @test -f .env || (echo "❌ .env file missing. Run 'just init-config' first" && exit 1)
+    @echo "Creating systemd service file..."
+    sed 's|WORKING_DIRECTORY|{{justfile_directory()}}|g' scripts/dragon-nuke.service > /etc/systemd/system/dragon-nuke.service
+    systemctl daemon-reload
+    systemctl enable dragon-nuke
+    systemctl start dragon-nuke
+    @echo "✅ DragonNuke service installed and started"
+    @echo "📊 Service status:"
+    systemctl status dragon-nuke --no-pager -l
+
+# Remove systemd service (requires root)
+systemd-remove:
+    @echo "🗑️  Removing DragonNuke systemd service..."
+    @test $(id -u) -eq 0 || (echo "❌ This command must be run as root (sudo just systemd-remove)" && exit 1)
+    systemctl stop dragon-nuke || true
+    systemctl disable dragon-nuke || true
+    rm -f /etc/systemd/system/dragon-nuke.service
+    systemctl daemon-reload
+    @echo "✅ DragonNuke service removed"
+
 # Quick Setup
 setup: install init-config
     @echo "🚀 Dragon Nuke server setup complete!"
     @echo "Next steps:"
     @echo "1. Edit .env with your GCP settings"
-    @echo "2. Run 'just start-root' to start the server"
+    @echo "2. Run 'sudo just systemd-setup' for production deployment"
+    @echo "   OR 'just start-root' for manual testing"
