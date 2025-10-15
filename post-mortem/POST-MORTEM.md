@@ -41,10 +41,10 @@ First, verify the VM is unbootable and the nuke operation completed:
 ```bash
 # Try to start the VM (should fail to boot)
 cd vm-testing
-vagrant up dragon-nuke-vm-1
+vagrant up dragon-nuke-ubuntu-1
 
 # Check the last logs before nuke
-vagrant ssh dragon-nuke-vm-1 -c "sudo tail -100 /var/log/dragon-nuke.log" 2>/dev/null || echo "VM is unbootable (expected)"
+vagrant ssh dragon-nuke-ubuntu-1 -c "sudo tail -100 /var/log/dragon-nuke.log" 2>/dev/null || echo "VM is unbootable (expected)"
 ```
 
 ## VBoxManage Disk Export (VMs only)
@@ -56,18 +56,18 @@ Export the VM disks for offline inspection:
 VBoxManage list vms
 
 # Show disk attachments for a specific VM
-VBoxManage showvminfo dragon-nuke-vm-1 | grep -E "SCSI|SATA|IDE"
+VBoxManage showvminfo dragon-nuke-ubuntu-1 | grep -E "SCSI|SATA|IDE"
 
 # Clone the main disk to a raw image for inspection
-VBoxManage clonehd "vm-testing/disks/dragon-nuke-vm-1-disk1.vdi" \
-  "/tmp/dragon-nuke-vm-1-disk1.raw" --format RAW
+VBoxManage clonehd "vm-testing/disks/dragon-nuke-ubuntu-1-disk1.vdi" \
+  "/tmp/dragon-nuke-ubuntu-1-disk1.raw" --format RAW
 
 # Or clone disk2
-VBoxManage clonehd "vm-testing/disks/dragon-nuke-vm-1-disk2.vdi" \
-  "/tmp/dragon-nuke-vm-1-disk2.raw" --format RAW
+VBoxManage clonehd "vm-testing/disks/dragon-nuke-ubuntu-1-disk2.vdi" \
+  "/tmp/dragon-nuke-ubuntu-1-disk2.raw" --format RAW
 
 # Check disk info
-VBoxManage showhdinfo "vm-testing/disks/dragon-nuke-vm-1-disk1.vdi"
+VBoxManage showhdinfo "vm-testing/disks/dragon-nuke-ubuntu-1-disk1.vdi"
 ```
 
 ## Baremetal Disk Analysis
