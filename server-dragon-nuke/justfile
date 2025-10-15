@@ -90,6 +90,7 @@ systemd-setup:
     @echo "🔧 Installing DragonNuke systemd service..."
     @test $(id -u) -eq 0 || (echo "❌ This command must be run as root (sudo just systemd-setup)" && exit 1)
     @test -f .env || (echo "❌ .env file missing. Run 'just init-config' first" && exit 1)
+    @test ! -f /etc/NIXOS || (echo "❌ NixOS detected! Use scripts/nixos-configuration.nix instead of this command." && echo "📖 See scripts/nixos-configuration.nix for setup instructions." && exit 1)
     @echo "Creating systemd service file..."
     sed 's|WORKING_DIRECTORY|{{justfile_directory()}}|g' scripts/dragon-nuke.service > /etc/systemd/system/dragon-nuke.service
     systemctl daemon-reload
