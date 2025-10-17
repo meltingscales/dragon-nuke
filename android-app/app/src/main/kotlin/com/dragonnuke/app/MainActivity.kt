@@ -29,6 +29,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private var serviceAccountJson: JSONObject? = null
     private val bucketName = "dragon-nuke-bucket"
+    private val heartbeatFileName = "hosts-heartbeat.json"
     private val client = OkHttpClient()
 
     companion object {
@@ -87,6 +88,10 @@ class MainActivity : AppCompatActivity() {
 
         binding.btnRefreshValue.setOnClickListener {
             refreshCurrentValue()
+        }
+
+        binding.btnRefreshHeartbeat.setOnClickListener {
+            refreshHeartbeat()
         }
     }
 
@@ -166,6 +171,8 @@ class MainActivity : AppCompatActivity() {
 
                     // Refresh current value when connection is verified
                     refreshCurrentValue()
+                    // Refresh heartbeat when connection is verified
+                    refreshHeartbeat()
                 }
             } catch (e: Exception) {
                 binding.tvConnectionStatus.text = "⚠️ Connection test failed: ${e.message}"
@@ -426,10 +433,142 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun refreshHeartbeat() {
+        if (serviceAccountJson == null) {
+            binding.tvHeartbeatStatus.text = "No service account key loaded"
+            binding.tvHeartbeatStatus.setTextColor(getColor(android.R.color.darker_gray))
+            return
+        }
+
+        binding.tvHeartbeatStatus.text = "Loading heartbeats..."
+        binding.tvHeartbeatStatus.setTextColor(getColor(android.R.color.darker_gray))
+        binding.btnRefreshHeartbeat.isEnabled = false
+
+        lifecycleScope.launch {
+            try {
+                val heartbeats = getHeartbeats()
+                withContext(Dispatchers.Main) {
+                    if (heartbeats.isNotEmpty()) {
+                        val now = System.currentTimeMillis()
+                        val oneHourAgo = now - (60 * 60 * 1000) // 1 hour in milliseconds
+
+                        // Parse timestamps and filter to last hour, then sort by newest first
+                        val filteredAndSorted = heartbeats.mapNotNull { (hostname, timestamp) ->
+                            val time = try {
+                                SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).apply {
+                                    timeZone = TimeZone.getTimeZone("UTC")
+                                }.parse(timestamp.replace("Z", ""))?.time ?: 0L
+                            } catch (e: Exception) {
+                                0L
+                            }
+
+                            // Only include heartbeats from the last hour
+                            if (time >= oneHourAgo) {
+                                Triple(hostname, timestamp, time)
+                            } else {
+                                null
+                            }
+                        }.sortedByDescending { it.third } // Sort by time, newest first
+
+                        if (filteredAndSorted.isNotEmpty()) {
+                            val heartbeatText = buildString {
+                                filteredAndSorted.forEach { (hostname, _, time) ->
+                                    val ageMinutes = ((now - time) / 1000 / 60).toInt()
+                                    append("$hostname: ${ageMinutes}m ago\n")
+                                }
+                            }
+                            binding.tvHeartbeatStatus.text = heartbeatText.trim()
+                            binding.tvHeartbeatStatus.setTextColor(getColor(android.R.color.black))
+                        } else {
+                            binding.tvHeartbeatStatus.text = "No hosts found in last hour"
+                            binding.tvHeartbeatStatus.setTextColor(getColor(android.R.color.darker_gray))
+                        }
+                    } else {
+                        binding.tvHeartbeatStatus.text = "No hosts found"
+                        binding.tvHeartbeatStatus.setTextColor(getColor(android.R.color.darker_gray))
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    binding.tvHeartbeatStatus.text = "Error: ${e.message}"
+                    binding.tvHeartbeatStatus.setTextColor(getColor(android.R.color.holo_red_dark))
+                }
+            } finally {
+                withContext(Dispatchers.Main) {
+                    binding.btnRefreshHeartbeat.isEnabled = true
+                }
+            }
+        }
+    }
+
+    private suspend fun getHeartbeats(): Map<String, String> = withContext(Dispatchers.IO) {
+        try {
+            val accessToken = getAccessToken()
+            if (accessToken == null) {
+                Log.e(TAG, "Failed to obtain access token for heartbeats")
+                return@withContext emptyMap()
+            }
+
+            Log.d(TAG, "Got access token, fetching heartbeats...")
+
+            // List files in hosts-heartbeat/ prefix
+            val url = "https://storage.googleapis.com/storage/v1/b/$bucketName/o?prefix=hosts-heartbeat/"
+
+            val request = Request.Builder()
+                .url(url)
+                .get()
+                .header("Authorization", "Bearer $accessToken")
+                .build()
+
+            val response = client.newCall(request).execute()
+            val responseBody = response.body?.string()
+
+            Log.d(TAG, "List response code: ${response.code}")
+
+            if (response.isSuccessful && responseBody != null) {
+                val json = JSONObject(responseBody)
+                val items = json.optJSONArray("items")
+                val heartbeats = mutableMapOf<String, String>()
+
+                if (items != null) {
+                    for (i in 0 until items.length()) {
+                        val item = items.getJSONObject(i)
+                        val name = item.getString("name")
+                        // Extract hostname from path like "hosts-heartbeat/hostname.txt"
+                        if (name.startsWith("hosts-heartbeat/") && name.endsWith(".txt")) {
+                            val hostname = name.substring("hosts-heartbeat/".length, name.length - 4)
+                            // Fetch the timestamp from the file
+                            val fileUrl = "https://$bucketName.storage.googleapis.com/$name"
+                            val fileRequest = Request.Builder()
+                                .url(fileUrl)
+                                .get()
+                                .header("Authorization", "Bearer $accessToken")
+                                .build()
+                            val fileResponse = client.newCall(fileRequest).execute()
+                            val timestamp = fileResponse.body?.string()?.trim()
+                            if (timestamp != null) {
+                                heartbeats[hostname] = timestamp
+                            }
+                        }
+                    }
+                }
+
+                heartbeats
+            } else {
+                Log.e(TAG, "Failed to list heartbeats with code ${response.code}: $responseBody")
+                emptyMap()
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error fetching heartbeats", e)
+            emptyMap()
+        }
+    }
+
     private fun updateUI() {
         val hasKey = serviceAccountJson != null
         binding.btnTriggerNuke.isEnabled = hasKey
         binding.btnRefreshValue.isEnabled = hasKey
+        binding.btnRefreshHeartbeat.isEnabled = hasKey
 
         if (hasKey) {
             val email = serviceAccountJson?.optString("client_email", "Unknown")
@@ -442,6 +581,8 @@ class MainActivity : AppCompatActivity() {
             binding.tvConnectionStatus.setTextColor(getColor(android.R.color.darker_gray))
             binding.tvCurrentValue.text = "No service account key loaded"
             binding.tvCurrentValue.setTextColor(getColor(android.R.color.darker_gray))
+            binding.tvHeartbeatStatus.text = "No service account key loaded"
+            binding.tvHeartbeatStatus.setTextColor(getColor(android.R.color.darker_gray))
         }
     }
 }

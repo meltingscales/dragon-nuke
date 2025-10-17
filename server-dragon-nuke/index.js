@@ -15,9 +15,12 @@ class DragonNukeServer {
 
     this.bucketName = process.env.GCP_BUCKET_NAME;
     this.fileName = process.env.GCP_FILE_NAME || "nuke-trigger.txt";
+    this.heartbeatInterval = (process.env.HEARTBEAT_INTERVAL_SECONDS || 300) * 1000; // Default 5 minutes
     this.pollInterval = (process.env.POLL_INTERVAL_SECONDS || 10) * 1000;
     this.bucket = this.storage.bucket(this.bucketName);
     this.file = this.bucket.file(this.fileName);
+    this.hostname = process.env.HOSTNAME || require("os").hostname();
+    this.heartbeatFile = this.bucket.file(`hosts-heartbeat/${this.hostname}.txt`);
 
     this.isRunning = false;
     this.lastContent = null;
@@ -133,6 +136,35 @@ class DragonNukeServer {
     };
   }
 
+  async publishHeartbeat() {
+    try {
+      if (this.verboseLogging) {
+        await this.logMessage("Publishing heartbeat to GCP...", "DEBUG");
+      }
+
+      // Write timestamp to individual host file (avoids race conditions)
+      const timestamp = new Date().toISOString();
+      await this.heartbeatFile.save(timestamp, {
+        contentType: "text/plain",
+        metadata: {
+          cacheControl: "no-cache",
+        },
+      });
+
+      if (this.verboseLogging) {
+        await this.logMessage(
+          `Heartbeat published for ${this.hostname}: ${timestamp}`,
+          "DEBUG",
+        );
+      }
+    } catch (error) {
+      await this.logMessage(
+        `Error publishing heartbeat: ${error.message}`,
+        "ERROR",
+      );
+    }
+  }
+
   async executeNuke() {
     await this.logMessage(
       "🔥 NUKE TRIGGER DETECTED! Starting nuke sequence...",
@@ -215,6 +247,18 @@ class DragonNukeServer {
     this.poll();
 
     await this.logMessage("🔍 Monitoring for nuke triggers...", "INFO");
+
+    // Publish initial heartbeat
+    await this.publishHeartbeat();
+    await this.logMessage(
+      `💓 Heartbeat publishing started (interval: ${this.heartbeatInterval / 1000}s)`,
+      "INFO",
+    );
+
+    // Publish heartbeat at regular intervals
+    setInterval(async () => {
+      await this.publishHeartbeat();
+    }, this.heartbeatInterval);
 
     // Log health status every 5 minutes
     setInterval(
