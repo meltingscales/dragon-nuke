@@ -156,6 +156,15 @@ class MainActivity : AppCompatActivity() {
     private fun updateTriggerButtonState() {
         val hasKey = serviceAccountJson != null
         binding.btnTriggerNuke.isEnabled = hasKey && isArmed
+
+        // Update visual appearance based on armed state
+        if (isArmed && hasKey) {
+            binding.btnTriggerNuke.alpha = 1.0f
+            binding.btnTriggerNuke.backgroundTintList = getColorStateList(android.R.color.holo_red_dark)
+        } else {
+            binding.btnTriggerNuke.alpha = 0.4f
+            binding.btnTriggerNuke.backgroundTintList = getColorStateList(android.R.color.darker_gray)
+        }
     }
 
     private val holdProgressHandler = Handler(Looper.getMainLooper())
