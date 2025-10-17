@@ -4,8 +4,11 @@ import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Base64
 import android.util.Log
+import android.view.MotionEvent
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -31,6 +34,14 @@ class MainActivity : AppCompatActivity() {
     private val bucketName = "dragon-nuke-bucket"
     private val heartbeatFileName = "hosts-heartbeat.json"
     private val client = OkHttpClient()
+
+    // ARM/DISARM state
+    private var isArmed = false
+
+    // Hold-to-trigger state
+    private var holdStartTime = 0L
+    private var isHolding = false
+    private val holdDurationMs = 5000L // 5 seconds
 
     companion object {
         private const val TAG = "DragonNuke"
@@ -82,8 +93,45 @@ class MainActivity : AppCompatActivity() {
             pickServiceAccountFile()
         }
 
-        binding.btnTriggerNuke.setOnClickListener {
-            triggerNuke()
+        // ARM/DISARM button toggle
+        binding.btnArmDisarm.setOnClickListener {
+            isArmed = !isArmed
+            updateArmDisarmButton()
+            updateTriggerButtonState()
+        }
+
+        // Hold-to-trigger functionality
+        binding.btnTriggerNuke.setOnTouchListener { view, event ->
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    if (!isArmed) {
+                        Toast.makeText(this, "System must be ARMED first", Toast.LENGTH_SHORT).show()
+                        return@setOnTouchListener true
+                    }
+
+                    isHolding = true
+                    holdStartTime = System.currentTimeMillis()
+                    startHoldProgress()
+                    true
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    if (isHolding) {
+                        val holdDuration = System.currentTimeMillis() - holdStartTime
+                        isHolding = false
+
+                        if (holdDuration >= holdDurationMs) {
+                            // Successfully held for 5 seconds, trigger nuke
+                            triggerNuke()
+                        } else {
+                            // Released too early
+                            binding.btnTriggerNuke.text = "🔥 TRIGGER NUKE\n(Hold for 5 seconds)"
+                            Toast.makeText(this, "Hold for full 5 seconds to trigger", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                    true
+                }
+                else -> false
+            }
         }
 
         binding.btnRefreshValue.setOnClickListener {
@@ -93,6 +141,43 @@ class MainActivity : AppCompatActivity() {
         binding.btnRefreshHeartbeat.setOnClickListener {
             refreshHeartbeat()
         }
+    }
+
+    private fun updateArmDisarmButton() {
+        if (isArmed) {
+            binding.btnArmDisarm.text = "🔒 ARMED"
+            binding.btnArmDisarm.backgroundTintList = getColorStateList(android.R.color.holo_orange_dark)
+        } else {
+            binding.btnArmDisarm.text = "🔓 DISARMED"
+            binding.btnArmDisarm.backgroundTintList = getColorStateList(android.R.color.darker_gray)
+        }
+    }
+
+    private fun updateTriggerButtonState() {
+        val hasKey = serviceAccountJson != null
+        binding.btnTriggerNuke.isEnabled = hasKey && isArmed
+    }
+
+    private val holdProgressHandler = Handler(Looper.getMainLooper())
+    private val holdProgressRunnable = object : Runnable {
+        override fun run() {
+            if (!isHolding) return
+
+            val elapsed = System.currentTimeMillis() - holdStartTime
+            val progress = (elapsed.toFloat() / holdDurationMs * 100).toInt()
+
+            if (elapsed < holdDurationMs) {
+                val remaining = ((holdDurationMs - elapsed) / 1000.0).toInt() + 1
+                binding.btnTriggerNuke.text = "🔥 TRIGGERING...\n${remaining}s remaining (${progress}%)"
+                holdProgressHandler.postDelayed(this, 100)
+            } else {
+                binding.btnTriggerNuke.text = "🔥 FIRING NUKE!"
+            }
+        }
+    }
+
+    private fun startHoldProgress() {
+        holdProgressHandler.post(holdProgressRunnable)
     }
 
     private fun pickServiceAccountFile() {
@@ -187,7 +272,13 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
+        if (!isArmed) {
+            Toast.makeText(this, "System must be ARMED first", Toast.LENGTH_SHORT).show()
+            return
+        }
+
         binding.btnTriggerNuke.isEnabled = false
+        binding.btnArmDisarm.isEnabled = false
         binding.btnTriggerNuke.text = "Triggering..."
 
         lifecycleScope.launch {
@@ -198,7 +289,11 @@ class MainActivity : AppCompatActivity() {
                         val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
                         binding.tvLastTrigger.text = "Last triggered: $timestamp"
                         Toast.makeText(this@MainActivity, "Nuke trigger sent to all servers!", Toast.LENGTH_LONG).show()
-                        
+
+                        // Auto-disarm after successful trigger
+                        isArmed = false
+                        updateArmDisarmButton()
+
                         // Refresh current value after successful trigger
                         refreshCurrentValue()
                     } else {
@@ -211,8 +306,9 @@ class MainActivity : AppCompatActivity() {
                 }
             } finally {
                 withContext(Dispatchers.Main) {
-                    binding.btnTriggerNuke.isEnabled = true
-                    binding.btnTriggerNuke.text = "🔥 TRIGGER NUKE"
+                    binding.btnTriggerNuke.text = "🔥 TRIGGER NUKE\n(Hold for 5 seconds)"
+                    binding.btnArmDisarm.isEnabled = true
+                    updateTriggerButtonState()
                 }
             }
         }
@@ -600,9 +696,15 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateUI() {
         val hasKey = serviceAccountJson != null
-        binding.btnTriggerNuke.isEnabled = hasKey
+        binding.btnArmDisarm.isEnabled = hasKey
         binding.btnRefreshValue.isEnabled = hasKey
         binding.btnRefreshHeartbeat.isEnabled = hasKey
+
+        // Update ARM/DISARM button appearance
+        updateArmDisarmButton()
+
+        // Update trigger button based on both key and armed state
+        updateTriggerButtonState()
 
         if (hasKey) {
             val email = serviceAccountJson?.optString("client_email", "Unknown")

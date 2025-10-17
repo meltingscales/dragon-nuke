@@ -52,3 +52,7 @@ show-apk:
 # Copy file to running AVD (e.g., just copy-to-device ../gcp-key.json /sdcard/)
 copy-to-device FILE DEST:
     adb push {{FILE}} {{DEST}}
+
+# Serve debug APK via HTTP server on port 8000
+serve-apk:
+    cd app/build/outputs/apk/debug && python3 -m http.server

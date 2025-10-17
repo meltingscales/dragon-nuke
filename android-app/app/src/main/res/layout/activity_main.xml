@@ -179,12 +179,25 @@
             android:fontFamily="monospace"
             android:textColor="@android:color/darker_gray" />
 
+        <!-- ARM/DISARM Button -->
+        <Button
+            android:id="@+id/btnArmDisarm"
+            android:layout_width="match_parent"
+            android:layout_height="64dp"
+            android:text="🔓 DISARMED"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="16dp"
+            android:backgroundTint="@android:color/darker_gray"
+            android:textColor="@android:color/white"
+            android:enabled="false" />
+
         <!-- Trigger Button -->
         <Button
             android:id="@+id/btnTriggerNuke"
             android:layout_width="match_parent"
             android:layout_height="72dp"
-            android:text="🔥 TRIGGER NUKE"
+            android:text="🔥 TRIGGER NUKE\n(Hold for 5 seconds)"
             android:textSize="20sp"
             android:textStyle="bold"
             android:layout_marginBottom="24dp"
