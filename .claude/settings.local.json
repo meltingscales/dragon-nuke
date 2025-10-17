@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//home/melty/keys/**)",
+      "Bash(VBoxManage showvminfo:*)",
+      "Bash(VBoxManage list:*)",
+      "Bash(vagrant destroy:*)",
+      "Bash(vagrant ssh:*)",
+      "Bash(vagrant provision:*)",
+      "Bash(find:*)",
+      "Bash(timeout 60 vagrant ssh:*)",
+      "Bash(vagrant status:*)",
+      "Bash(curl -s \"https://app.vagrantup.com/api/v2/search?q=fedora&provider=virtualbox\")",
+      "Bash(curl -s \"https://app.vagrantup.com/api/v2/box/bento/fedora-39\")",
+      "Bash(curl -s \"https://app.vagrantup.com/api/v2/search?q=nixos&provider=virtualbox\")",
+      "Bash(python3:*)",
+      "Bash(curl -s \"https://app.vagrantup.com/api/v2/box/hennersz/nixos-23.05\")",
+      "Bash(curl -s \"https://app.vagrantup.com/api/v2/search?q=cachyos&provider=virtualbox\")",
+      "Bash(curl -s \"https://app.vagrantup.com/api/v2/search?q=cachy&provider=virtualbox\")",
+      "Bash(curl -s \"https://app.vagrantup.com/api/v2/search?q=arch&provider=virtualbox\")",
+      "Bash(curl -s \"https://app.vagrantup.com/api/v2/box/generic/arch\")",
+      "Bash(vagrant up:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

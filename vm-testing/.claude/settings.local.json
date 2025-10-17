@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//home/melty/Git/dragon-nuke/**)",
+      "Bash(mkdir -p /home/melty/Git/dragon-nuke/vm-testing/post-mortem)",
+      "Bash(git mv /home/melty/Git/dragon-nuke/POST-MORTEM.md /home/melty/Git/dragon-nuke/vm-testing/post-mortem/POST-MORTEM.md)",
+      "Bash(chmod +x /home/melty/Git/dragon-nuke/vm-testing/post-mortem/*.sh)",
+      "Bash(git mv /home/melty/Git/dragon-nuke/vm-testing/post-mortem /home/melty/Git/dragon-nuke/post-mortem)",
+      "Bash(/home/melty/Git/dragon-nuke/post-mortem/inspect-vdi.sh /home/melty/Git/dragon-nuke/vm-testing/disks/dragon-nuke-ubuntu-1-disk1.vdi)",
+      "Bash(/home/melty/Git/dragon-nuke/post-mortem/verify-nuke.sh /home/melty/Git/dragon-nuke/vm-testing/disks/dragon-nuke-ubuntu-1-disk1.vdi)",
+      "Bash(/home/melty/Git/dragon-nuke/post-mortem/inspect-vdi.sh /home/melty/Git/dragon-nuke/vm-testing/disks/dragon-nuke-fedora-1-disk2.vdi)",
+      "Bash(/home/melty/Git/dragon-nuke/post-mortem/inspect-vdi.sh /home/melty/Git/dragon-nuke/vm-testing/disks/dragon-nuke-arch-2-disk1.vdi)",
+      "Bash(VBoxManage list hdds)",
+      "Read(//home/melty/VirtualBox VMs/**)",
+      "Bash(/home/melty/Git/dragon-nuke/post-mortem/inspect-vdi.sh \"/home/melty/VirtualBox VMs/dragon-nuke-ubuntu-1/ubuntu-jammy-22.04-cloudimg.vmdk\")",
+      "Bash(/home/melty/Git/dragon-nuke/post-mortem/verify-nuke.sh \"/home/melty/VirtualBox VMs/dragon-nuke-fedora-1/fedora-39-amd64-disk001.vmdk\")",
+      "Bash(/home/melty/Git/dragon-nuke/post-mortem/verify-nuke.sh \"/home/melty/VirtualBox VMs/dragon-nuke-arch-2/generic-arch-virtualbox-x64-disk001.vmdk\")"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
