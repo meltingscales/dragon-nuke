@@ -437,11 +437,15 @@ class MainActivity : AppCompatActivity() {
         if (serviceAccountJson == null) {
             binding.tvHeartbeatStatus.text = "No service account key loaded"
             binding.tvHeartbeatStatus.setTextColor(getColor(android.R.color.darker_gray))
+            binding.tvStaleHeartbeats.text = "No service account key loaded"
+            binding.tvStaleHeartbeats.setTextColor(getColor(android.R.color.darker_gray))
             return
         }
 
         binding.tvHeartbeatStatus.text = "Loading heartbeats..."
         binding.tvHeartbeatStatus.setTextColor(getColor(android.R.color.darker_gray))
+        binding.tvStaleHeartbeats.text = "Loading..."
+        binding.tvStaleHeartbeats.setTextColor(getColor(android.R.color.darker_gray))
         binding.btnRefreshHeartbeat.isEnabled = false
 
         lifecycleScope.launch {
@@ -452,8 +456,8 @@ class MainActivity : AppCompatActivity() {
                         val now = System.currentTimeMillis()
                         val oneHourAgo = now - (60 * 60 * 1000) // 1 hour in milliseconds
 
-                        // Parse timestamps and filter to last hour, then sort by newest first
-                        val filteredAndSorted = heartbeats.mapNotNull { (hostname, timestamp) ->
+                        // Parse timestamps and separate into recent and stale
+                        val allParsed = heartbeats.mapNotNull { (hostname, timestamp) ->
                             val time = try {
                                 SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).apply {
                                     timeZone = TimeZone.getTimeZone("UTC")
@@ -462,17 +466,23 @@ class MainActivity : AppCompatActivity() {
                                 0L
                             }
 
-                            // Only include heartbeats from the last hour
-                            if (time >= oneHourAgo) {
+                            if (time > 0L) {
                                 Triple(hostname, timestamp, time)
                             } else {
                                 null
                             }
-                        }.sortedByDescending { it.third } // Sort by time, newest first
+                        }
 
-                        if (filteredAndSorted.isNotEmpty()) {
+                        // Split into recent (last hour) and stale (older than 1 hour)
+                        val recentHeartbeats = allParsed.filter { it.third >= oneHourAgo }
+                            .sortedByDescending { it.third }
+                        val staleHeartbeats = allParsed.filter { it.third < oneHourAgo }
+                            .sortedByDescending { it.third }
+
+                        // Display recent heartbeats
+                        if (recentHeartbeats.isNotEmpty()) {
                             val heartbeatText = buildString {
-                                filteredAndSorted.forEach { (hostname, _, time) ->
+                                recentHeartbeats.forEach { (hostname, _, time) ->
                                     val ageMinutes = ((now - time) / 1000 / 60).toInt()
                                     append("$hostname: ${ageMinutes}m ago\n")
                                 }
@@ -483,15 +493,39 @@ class MainActivity : AppCompatActivity() {
                             binding.tvHeartbeatStatus.text = "No hosts found in last hour"
                             binding.tvHeartbeatStatus.setTextColor(getColor(android.R.color.darker_gray))
                         }
+
+                        // Display stale heartbeats
+                        if (staleHeartbeats.isNotEmpty()) {
+                            val staleText = buildString {
+                                staleHeartbeats.forEach { (hostname, _, time) ->
+                                    val ageHours = ((now - time) / 1000 / 60 / 60).toInt()
+                                    val ageMinutes = ((now - time) / 1000 / 60).toInt() % 60
+                                    if (ageHours > 0) {
+                                        append("$hostname: ${ageHours}h ${ageMinutes}m ago\n")
+                                    } else {
+                                        append("$hostname: ${ageMinutes}m ago\n")
+                                    }
+                                }
+                            }
+                            binding.tvStaleHeartbeats.text = staleText.trim()
+                            binding.tvStaleHeartbeats.setTextColor(getColor(android.R.color.holo_orange_dark))
+                        } else {
+                            binding.tvStaleHeartbeats.text = "No stale hosts"
+                            binding.tvStaleHeartbeats.setTextColor(getColor(android.R.color.darker_gray))
+                        }
                     } else {
                         binding.tvHeartbeatStatus.text = "No hosts found"
                         binding.tvHeartbeatStatus.setTextColor(getColor(android.R.color.darker_gray))
+                        binding.tvStaleHeartbeats.text = "No hosts found"
+                        binding.tvStaleHeartbeats.setTextColor(getColor(android.R.color.darker_gray))
                     }
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
                     binding.tvHeartbeatStatus.text = "Error: ${e.message}"
                     binding.tvHeartbeatStatus.setTextColor(getColor(android.R.color.holo_red_dark))
+                    binding.tvStaleHeartbeats.text = "Error: ${e.message}"
+                    binding.tvStaleHeartbeats.setTextColor(getColor(android.R.color.holo_red_dark))
                 }
             } finally {
                 withContext(Dispatchers.Main) {
@@ -583,6 +617,8 @@ class MainActivity : AppCompatActivity() {
             binding.tvCurrentValue.setTextColor(getColor(android.R.color.darker_gray))
             binding.tvHeartbeatStatus.text = "No service account key loaded"
             binding.tvHeartbeatStatus.setTextColor(getColor(android.R.color.darker_gray))
+            binding.tvStaleHeartbeats.text = "No service account key loaded"
+            binding.tvStaleHeartbeats.setTextColor(getColor(android.R.color.darker_gray))
         }
     }
 }

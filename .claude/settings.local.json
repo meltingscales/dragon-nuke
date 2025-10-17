@@ -19,7 +19,17 @@
       "Bash(curl -s \"https://app.vagrantup.com/api/v2/search?q=cachy&provider=virtualbox\")",
       "Bash(curl -s \"https://app.vagrantup.com/api/v2/search?q=arch&provider=virtualbox\")",
       "Bash(curl -s \"https://app.vagrantup.com/api/v2/box/generic/arch\")",
-      "Bash(vagrant up:*)"
+      "Bash(vagrant up:*)",
+      "Bash(just build)",
+      "Bash(java:*)",
+      "Bash(archlinux-java:*)",
+      "Bash(sudo pacman:*)",
+      "Bash(JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./gradlew:*)",
+      "Read(//opt/**)",
+      "Read(//home/melty/Downloads/**)",
+      "Bash(tar:*)",
+      "Read(//home/melty/Android/Sdk/**)",
+      "Bash(JAVA_HOME=/usr/lib/jvm/java-21-openjdk just build:*)"
     ],
     "deny": [],
     "ask": []

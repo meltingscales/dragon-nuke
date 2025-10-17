@@ -156,6 +156,29 @@
             android:layout_marginBottom="32dp"
             style="@style/Widget.Material3.Button.OutlinedButton" />
 
+        <!-- Stale Heartbeat Section -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Stale Heartbeats (>1 hour)"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="12dp"
+            android:textColor="@android:color/black" />
+
+        <TextView
+            android:id="@+id/tvStaleHeartbeats"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Loading..."
+            android:textSize="14sp"
+            android:gravity="start"
+            android:layout_marginBottom="32dp"
+            android:padding="12dp"
+            android:background="@drawable/bucket_background"
+            android:fontFamily="monospace"
+            android:textColor="@android:color/darker_gray" />
+
         <!-- Trigger Button -->
         <Button
             android:id="@+id/btnTriggerNuke"
