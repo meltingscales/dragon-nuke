@@ -90,9 +90,20 @@ wipe_luks_header() {
     # First destroy partition table
     destroy_partition_table "$dev"
 
-    # LUKS1 header is 2MB, LUKS2 header is 16MB
-    # Wipe first 20MB to be safe
-    dd if=/dev/urandom of="$dev" bs=1M count=20 status=progress 2>/dev/null
+    # LUKS header structure (from LUKS spec):
+    # +---------+-----+-----+-----+-----+------------------------+
+    # | pheader | KM1 | KM2 | ... | KM8 | User encrypted data    |
+    # +---------+-----+-----+-----+-----+------------------------+
+    #
+    # LUKS1 header: ~2MB total (pheader + 8 key material sections)
+    # LUKS2 header: ~16MB total (larger structure)
+    #
+    # We wipe 32MB to ensure complete destruction of:
+    # - Partition header (salts, iteration counts, cipher info)
+    # - All 8 key material sections (encrypted master keys)
+    # - Any backup/redundant metadata
+    # - Safety margin for future LUKS versions
+    dd if=/dev/urandom of="$dev" bs=1M count=32 status=progress 2>/dev/null
 
     echo "LUKS header wiped on $dev"
 }
@@ -208,36 +219,46 @@ for dev in "${devices[@]}"; do
     echo ""
     echo "Processing device: $dev"
 
+    # CRITICAL: If LUKS, wipe header IMMEDIATELY regardless of mode
+    if is_luks_device "$dev"; then
+        echo "!!! CRITICAL: Detected LUKS volume on $dev - wiping header immediately !!!"
+        wipe_luks_header "$dev"
+    fi
+
+    # Then proceed with additional wiping based on mode
     case "$WIPE_MODE" in
         shred)
-            # Safest option: just shred everything
+            # Safest option: shred everything (even if LUKS header already wiped)
             echo "Using shred mode (safest)"
-            shred_device "$dev"
+            if ! is_luks_device "$dev"; then
+                # Only shred non-LUKS devices (LUKS already done above)
+                shred_device "$dev"
+            else
+                echo "LUKS header already wiped, skipping redundant shred"
+            fi
             ;;
 
         full)
-            # Fast mode first, then full wipe
+            # Full wipe after targeted operations
             echo "Using full mode (thorough)"
-            if is_luks_device "$dev"; then
-                echo "Detected LUKS volume on $dev"
-                wipe_luks_header "$dev"
-            else
+            if ! is_luks_device "$dev"; then
+                # Only do ext4 approach for non-LUKS
                 echo "Not a LUKS volume, using ext4/generic approach on $dev"
                 wipe_ext4_filesystem "$dev"
             fi
-            # Then do full wipe
+            # Then do full wipe for extra thoroughness
             full_wipe_device "$dev"
             ;;
 
         fast|*)
-            # Fast mode: LUKS header or ext4 superblocks + random offsets
+            # Fast mode: targeted approach only
             echo "Using fast mode (LUKS/ext4 targeted)"
-            if is_luks_device "$dev"; then
-                echo "Detected LUKS volume on $dev"
-                wipe_luks_header "$dev"
-            else
+            if ! is_luks_device "$dev"; then
+                # Only do ext4 approach for non-LUKS
                 echo "Not a LUKS volume, using ext4/generic approach on $dev"
                 wipe_ext4_filesystem "$dev"
+            else
+                echo "LUKS header already wiped"
             fi
             ;;
     esac
