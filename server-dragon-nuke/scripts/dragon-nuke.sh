@@ -1,175 +1,177 @@
 #!/usr/bin/env bash
 
-# CRITICAL: Relocate script to RAM-based tmpfs to prevent self-destruction
-# This must be the FIRST thing the script does
-RAMFS_SCRIPT="/dev/shm/dragon-nuke-$$.sh"
-if [ "$0" != "$RAMFS_SCRIPT" ]; then
-  echo "Relocating script to RAM filesystem for safety..."
+# Wrap entire script in braces to ensure it's fully loaded before execution
+{
 
-  # Copy this script to /dev/shm (tmpfs in RAM)
-  cp "$0" "$RAMFS_SCRIPT"
-  chmod +x "$RAMFS_SCRIPT"
-
-  # Re-execute from RAM, passing all arguments
-  exec "$RAMFS_SCRIPT" "$@"
-
-  # If exec fails, exit (should never reach here)
-  exit 1
-fi
-
-# We are now running from /dev/shm - safe from self-destruction
-echo "DragonNuke triggered! Nuking... (running from RAM)"
-
-# Log the wipe event
-echo "$(date): DragonNuke triggered by remote command" >> /var/log/dragon-nuke.log
-
-# Function to disable network adapters
-disable_network_adapters() {
-    # Disable NetworkManager if it's running
-    if systemctl is-active --quiet NetworkManager; then
-        echo "Disabling NetworkManager..."
-        systemctl stop NetworkManager
-        systemctl disable NetworkManager
-    fi
-
-    # Disable systemd-networkd if it's running
-    if systemctl is-active --quiet systemd-networkd; then
-        echo "Disabling systemd-networkd..."
-        systemctl stop systemd-networkd
-        systemctl disable systemd-networkd
-    fi
-
-    # Disable traditional network interfaces using ip command
-    echo "Disabling all network interfaces..."
-    ip link set down dev lo # Ensure loopback is also disabled
-    for interface in $(ip -o link show | awk -F': ' '{print $2}'); do
-        ip link set down "$interface"
-    done
-}
-
-# Function to send notification to all logged-in users
-notify_users() {
-    local message="$1"
-    local delay="$2"
-    
-    # Send wall message to all terminals
-    echo "$message" | wall
-    
-    # Try to send desktop notifications to all active X11 sessions
-    for user_session in $(who | awk '{print $1":"$2}' | sort -u); do
-        user=$(echo $user_session | cut -d: -f1)
-        display=$(echo $user_session | cut -d: -f2)
-        
-        if [[ "$display" =~ ^:[0-9]+$ ]]; then
-            # This looks like an X11 display
-            sudo -u "$user" DISPLAY="$display" notify-send --urgency=critical --expire-time=0 \
-                "🔥 System Nuke" \
-                "DragonNuke triggered! System will destroy all block devices in $delay seconds." 2>/dev/null || true
-        fi
-    done
-    
-    # Send systemd user notifications if available
-    for user_id in $(loginctl list-users --no-legend | awk '{print $1}'); do
-        user=$(getent passwd "$user_id" | cut -d: -f1)
-        sudo -u "$user" systemd-notify --user "STATUS=DragonNuke: System nuke starting in $delay seconds" 2>/dev/null || true
-    done
-}
-
-# Send initial warning
-notify_users "URGENT: Remote nuke triggered! System will destroy all block devices in 1 seconds." "1"
-sleep 1
-
-notify_users "Filesystem nuke starting NOW!" "0"
-
-# Final log entry
-echo "$(date): Executing nuke command" >> /var/log/dragon-nuke.log
-
-# Execute the nuke
-
-# require root
-if [ "$(id -u)" -ne 0 ]; then
+# CRITICAL: Root check MUST be first thing before any operations
+if [ "$UID" -ne 0 ]; then
   echo "Error: This script must be run as root." >&2
   exit 1
 fi
 
-# Disable network adapters
+echo "DragonNuke triggered! Nuking..."
+
+# Function to disable network adapters
+# WARNING: If running over SSH, start as './dragon-nuke.sh & disown' to avoid interruption
+disable_network_adapters() {
+    echo "WARNING: Network shutdown will interrupt SSH connections!"
+
+    # Disable NetworkManager if it's running
+    if systemctl is-active --quiet NetworkManager 2>/dev/null; then
+        systemctl stop NetworkManager 2>/dev/null
+    fi
+
+    # Disable systemd-networkd if it's running
+    if systemctl is-active --quiet systemd-networkd 2>/dev/null; then
+        systemctl stop systemd-networkd 2>/dev/null
+    fi
+
+    # Disable all network interfaces
+    for interface in $(ip -o link show | awk -F': ' '{print $2}'); do
+        ip link set down "$interface" 2>/dev/null
+    done
+}
+
+# Function to collect block devices
+collect_block_devices() {
+    local devices=()
+
+    # Try lsblk first (most reliable if available)
+    if command -v lsblk &>/dev/null; then
+        readarray -t devices < <(lsblk --list --output NAME,RO --paths --nodeps | awk '$2==0 {print $1}')
+    else
+        # Fallback: parse /proc/mounts for mounted devices
+        echo "Warning: lsblk not found, using /proc/mounts fallback" >&2
+        readarray -t devices < <(awk '$1 ~ /^\/dev\// && $1 !~ /^\/dev\/(loop|ram|dm-)/ {print $1}' /proc/mounts | sort -u | sed 's/[0-9]*$//' | sort -u)
+    fi
+
+    printf '%s\n' "${devices[@]}"
+}
+
+# Function to check if device is LUKS encrypted
+is_luks_device() {
+    local dev="$1"
+    cryptsetup isLuks "$dev" 2>/dev/null
+    return $?
+}
+
+# Function to wipe LUKS header (fast, effective for encrypted volumes)
+wipe_luks_header() {
+    local dev="$1"
+    echo "Wiping LUKS header on $dev..."
+
+    # LUKS1 header is 2MB, LUKS2 header is 16MB
+    # Wipe first 20MB to be safe
+    dd if=/dev/urandom of="$dev" bs=1M count=20 status=progress 2>/dev/null
+
+    echo "LUKS header wiped on $dev"
+}
+
+# Function to wipe ext4 filesystem (destroy superblocks + random data)
+wipe_ext4_filesystem() {
+    local dev="$1"
+    echo "Attempting ext4 superblock destruction on $dev..."
+
+    # Try to get superblock locations
+    if command -v dumpe2fs &>/dev/null; then
+        local superblocks=$(dumpe2fs "$dev" 2>/dev/null | grep -i 'superblock' | grep -oE '[0-9]+' | head -20)
+
+        if [ -n "$superblocks" ]; then
+            echo "Found ext4 superblocks, destroying them..."
+            for sb in $superblocks; do
+                # Wipe 1MB at each superblock location
+                dd if=/dev/urandom of="$dev" bs=1k seek=$sb count=1024 status=none 2>/dev/null
+            done
+            echo "Superblocks destroyed on $dev"
+        fi
+    fi
+
+    # Random offset wiping strategy
+    echo "Wiping random offsets on $dev..."
+    local device_size=$(blockdev --getsize64 "$dev" 2>/dev/null || echo 0)
+
+    if [ "$device_size" -gt 0 ]; then
+        # Wipe ~5GB worth of random 1MB chunks
+        local chunks_to_wipe=5000
+        local chunk_size=$((1024 * 1024)) # 1MB
+
+        for ((i=0; i<chunks_to_wipe; i++)); do
+            # Random offset within device
+            local random_offset=$((RANDOM * RANDOM % (device_size / chunk_size)))
+            dd if=/dev/urandom of="$dev" bs=1M seek=$random_offset count=1 status=none 2>/dev/null || true
+
+            # Progress indicator every 500 chunks
+            if [ $((i % 500)) -eq 0 ]; then
+                echo "  Random wipe progress: $i/$chunks_to_wipe chunks..."
+            fi
+        done
+        echo "Random offset wiping complete on $dev"
+    fi
+}
+
+# Function to full wipe device with urandom
+full_wipe_device() {
+    local dev="$1"
+    echo "Full wiping $dev with urandom (this will take a while)..."
+    dd if=/dev/urandom of="$dev" bs=4M status=progress 2>/dev/null || true
+    echo "Full wipe complete on $dev"
+}
+
+# Function to scramble RAM
+scramble_ram() {
+    echo "Scrambling RAM..."
+
+    # Fill /dev/shm (which is RAM) with random data
+    dd if=/dev/urandom of=/dev/shm/ram_fill bs=1M status=progress 2>/dev/null || true
+    rm -f /dev/shm/ram_fill 2>/dev/null || true
+
+    # Drop all caches
+    sync
+    echo 3 > /proc/sys/vm/drop_caches 2>/dev/null || true
+
+    echo "RAM scrambled"
+}
+
+# Disable network first
 disable_network_adapters
 
-# Array of block devices
-declare -a devices=($(lsblk --list --output NAME,RO --paths --nodeps | awk '$2==0 {print $1}'))
+# Collect all block devices
+declare -a devices=($(collect_block_devices))
 
-# Function to zero out a device
-zero_device() {
-  echo "Wiping $1..."
-  dd if=/dev/zero of="$1" bs=4M status=progress oflag=sync bsync=1M conv=fsync &
-}
+echo "Found block devices: ${devices[*]}"
 
-# Function to dismount a device and wait for it to be unmounted
-dismount_device() {
-  local dev="$1"
-  if mountpoint -q "$dev"; then
-    echo "Unmounting $dev..."
-    
-    # unmount -f will force unmount, non lazily
-    timeout 10s umount -f "$dev" || return 1
-    while mountpoint -q "$dev"; do
-      sleep 0.1
-    done
-  fi
-}
-
-# PRIORITY 1: Shred credentials and home directories FIRST (before anything else)
-echo "PRIORITY: Shredding credentials and home directories..."
-
-# Shred SSH keys and configs
-find /home -type f \( -name 'id_*' -o -name 'authorized_keys' -o -name 'known_hosts' -o -name 'config' \) -path '*/.ssh/*' -exec shred -vfz -n 3 {} \; 2>/dev/null
-find /root/.ssh -type f -exec shred -vfz -n 3 {} \; 2>/dev/null
-
-# Shred password files and shadow
-shred -vfz -n 3 /etc/shadow /etc/gshadow /etc/passwd /etc/group 2>/dev/null
-
-# Shred shell history files
-find /home /root -maxdepth 2 -type f \( -name '.*_history' -o -name '.bash_history' -o -name '.zsh_history' \) -exec shred -vfz -n 3 {} \; 2>/dev/null
-
-# Shred GPG/PGP keys
-find /home /root -type f -path '*/.gnupg/*' -exec shred -vfz -n 3 {} \; 2>/dev/null
-
-# Shred browser credential stores
-find /home -type f \( -name 'key*.db' -o -name 'logins.json' -o -name 'cookies.sqlite' -o -name 'Cookies' -o -name 'Login Data' \) \
-  -path '*/.mozilla/*' -o -path '*/.config/google-chrome/*' -o -path '*/.config/chromium/*' -exec shred -vfz -n 3 {} \; 2>/dev/null
-
-# Shred entire home directories recursively (all user data)
-echo "Shredding all home directory contents..."
-find /home -type f -exec shred -vfz -n 1 {} \; 2>/dev/null
-find /root -type f -not -path '/root/.ssh/*' -exec shred -vfz -n 1 {} \; 2>/dev/null
-
-echo "Credentials and home directories shredded."
-
-# Dismount all devices with timeout
+# Wipe each device based on type
 for dev in "${devices[@]}"; do
-  dismount_device "$dev" || { echo "Failed to unmount $dev. Continuing..." >&2; }
+    echo ""
+    echo "Processing device: $dev"
+
+    if is_luks_device "$dev"; then
+        echo "Detected LUKS volume on $dev"
+        wipe_luks_header "$dev"
+    else
+        echo "Not a LUKS volume, using ext4/generic approach on $dev"
+
+        # Try ext4 superblock destruction + random offsets
+        wipe_ext4_filesystem "$dev"
+
+        # Optional: Full wipe (comment out if time is critical)
+        # full_wipe_device "$dev"
+    fi
+
+    echo "Device $dev processing complete"
 done
 
-# PRIORITY 2: Now wipe block devices in parallel
-echo "Starting parallel block device wipes..."
-for dev in "${devices[@]}"; do
-  zero_device "$dev"
-done
+# Scramble RAM before shutdown
+scramble_ram
 
-# PRIORITY 3: Secure wipe remaining root filesystem
-echo "Wiping remaining root filesystem..."
+# Final sync
+sync
 
-# Fill filesystem with random data to overwrite free space
-echo "Filling disk with random data..."
-dd if=/dev/urandom of=/dev/shm/fill_disk bs=1M 2>/dev/null &
+echo ""
+echo "All devices have been wiped. Powering off..."
 
-# Securely wipe all remaining files
-echo "Shredding all remaining files..."
-find / -type f -not -path '/proc/*' -not -path '/sys/*' -not -path '/dev/*' -not -path '/dev/shm/*' \
-  -not -path '/home/*' -not -path '/root/*' \
-  -exec shred -vfz -n 1 {} \; 2>/dev/null &
+# Poweroff immediately
+poweroff -f
 
-# Wait for all background processes to finish
-wait
-
-echo "all devices have been wiped :3"
+# Close the brace that wraps the entire script
+}
