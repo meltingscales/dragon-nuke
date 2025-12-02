@@ -3,7 +3,21 @@
 default:
     @just --list
 
-# Setup Android SDK path (run this first if you get SDK errors)
+# Install Android SDK command-line tools (run this first if SDK not installed)
+install-sdk:
+    @echo "📦 Installing Android SDK command-line tools..."
+    mkdir -p ~/Android/Sdk
+    cd ~/Android/Sdk && wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+    cd ~/Android/Sdk && unzip -q commandlinetools-linux-11076708_latest.zip
+    mkdir -p ~/Android/Sdk/cmdline-tools/latest
+    cd ~/Android/Sdk && mv cmdline-tools/* cmdline-tools/latest/ 2>/dev/null || true
+    cd ~/Android/Sdk && rm commandlinetools-linux-11076708_latest.zip
+    @echo "📥 Installing SDK components..."
+    cd ~/Android/Sdk/cmdline-tools/latest/bin && yes | ./sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+    @echo "sdk.dir=$$HOME/Android/Sdk" > local.properties
+    @echo "✅ Android SDK installed and configured!"
+
+# Setup Android SDK path (if you already have SDK installed elsewhere)
 setup-sdk:
     @echo "Enter your Android SDK path (e.g., ~/Android/Sdk or /usr/lib/android-sdk):"
     @read -p "SDK path: " SDK_PATH && echo "sdk.dir=$$SDK_PATH" > local.properties
