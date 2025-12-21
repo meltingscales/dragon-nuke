@@ -11,6 +11,16 @@ fi
 
 echo "DragonNuke triggered! Nuking..."
 
+# ============================================================================
+# CONFIGURATION
+# ============================================================================
+# WIPE_MODE options:
+#   "fast"   - LUKS header wipe + ext4 superblock destruction + random offsets (fastest)
+#   "shred"  - Use shred on all block devices (safest, slowest)
+#   "full"   - Full urandom wipe after fast mode (thorough but very slow)
+WIPE_MODE="${WIPE_MODE:-fast}"
+# ============================================================================
+
 # Function to disable network adapters
 # WARNING: If running over SSH, start as './dragon-nuke.sh & disown' to avoid interruption
 disable_network_adapters() {
@@ -55,14 +65,45 @@ is_luks_device() {
     return $?
 }
 
+# Function to destroy partition table
+destroy_partition_table() {
+    local dev="$1"
+    echo "Destroying partition table on $dev..."
+
+    # Wipe MBR/GPT header at start (first 10MB)
+    dd if=/dev/zero of="$dev" bs=1M count=10 status=none 2>/dev/null || true
+
+    # Wipe GPT backup header at end (last 34 sectors of 512 bytes)
+    local device_size=$(blockdev --getsz "$dev" 2>/dev/null || echo 0)
+    if [ "$device_size" -gt 0 ]; then
+        dd if=/dev/zero of="$dev" bs=512 seek=$((device_size - 34)) count=34 status=none 2>/dev/null || true
+    fi
+
+    echo "Partition table destroyed on $dev"
+}
+
 # Function to wipe LUKS header (fast, effective for encrypted volumes)
 wipe_luks_header() {
     local dev="$1"
     echo "Wiping LUKS header on $dev..."
 
-    # LUKS1 header is 2MB, LUKS2 header is 16MB
-    # Wipe first 20MB to be safe
-    dd if=/dev/urandom of="$dev" bs=1M count=20 status=progress 2>/dev/null
+    # First destroy partition table
+    destroy_partition_table "$dev"
+
+    # LUKS header structure (from LUKS spec):
+    # +---------+-----+-----+-----+-----+------------------------+
+    # | pheader | KM1 | KM2 | ... | KM8 | User encrypted data    |
+    # +---------+-----+-----+-----+-----+------------------------+
+    #
+    # LUKS1 header: ~2MB total (pheader + 8 key material sections)
+    # LUKS2 header: ~16MB total (larger structure)
+    #
+    # We wipe 32MB to ensure complete destruction of:
+    # - Partition header (salts, iteration counts, cipher info)
+    # - All 8 key material sections (encrypted master keys)
+    # - Any backup/redundant metadata
+    # - Safety margin for future LUKS versions
+    dd if=/dev/urandom of="$dev" bs=1M count=32 status=progress 2>/dev/null
 
     echo "LUKS header wiped on $dev"
 }
@@ -71,6 +112,9 @@ wipe_luks_header() {
 wipe_ext4_filesystem() {
     local dev="$1"
     echo "Attempting ext4 superblock destruction on $dev..."
+
+    # First destroy partition table
+    destroy_partition_table "$dev"
 
     # Try to get superblock locations
     if command -v dumpe2fs &>/dev/null; then
@@ -109,6 +153,26 @@ wipe_ext4_filesystem() {
     fi
 }
 
+# Function to shred device (safest method)
+shred_device() {
+    local dev="$1"
+    echo "Shredding $dev (this is the safest but slowest method)..."
+
+    # First destroy partition table
+    destroy_partition_table "$dev"
+
+    # Use shred - it handles everything properly
+    if command -v shred &>/dev/null; then
+        shred -v "$dev" 2>/dev/null || shred "$dev" 2>/dev/null || true
+    else
+        # Fallback to dd if shred not available
+        echo "shred not found, using dd fallback..."
+        dd if=/dev/urandom of="$dev" bs=4M status=progress 2>/dev/null || true
+    fi
+
+    echo "Shred complete on $dev"
+}
+
 # Function to full wipe device with urandom
 full_wipe_device() {
     local dev="$1"
@@ -121,13 +185,22 @@ full_wipe_device() {
 scramble_ram() {
     echo "Scrambling RAM..."
 
-    # Fill /dev/shm (which is RAM) with random data
-    dd if=/dev/urandom of=/dev/shm/ram_fill bs=1M status=progress 2>/dev/null || true
-    rm -f /dev/shm/ram_fill 2>/dev/null || true
+    # Fill /dev/shm multiple times to ensure we overwrite more RAM
+    for i in {1..3}; do
+        dd if=/dev/urandom of=/dev/shm/ram_fill_$i bs=1M status=none 2>/dev/null || true
+    done
 
-    # Drop all caches
+    # Try to allocate and fill more memory locations
+    for i in {1..5}; do
+        dd if=/dev/urandom of=/tmp/ram_fill_tmp_$i bs=1M count=100 status=none 2>/dev/null || true
+    done
+
+    # Drop all caches to clear more RAM
     sync
     echo 3 > /proc/sys/vm/drop_caches 2>/dev/null || true
+
+    # Clean up
+    rm -f /dev/shm/ram_fill_* /tmp/ram_fill_tmp_* 2>/dev/null || true
 
     echo "RAM scrambled"
 }
@@ -139,24 +212,56 @@ disable_network_adapters
 declare -a devices=($(collect_block_devices))
 
 echo "Found block devices: ${devices[*]}"
+echo "Wipe mode: $WIPE_MODE"
 
-# Wipe each device based on type
+# Wipe each device based on configured mode
 for dev in "${devices[@]}"; do
     echo ""
     echo "Processing device: $dev"
 
+    # CRITICAL: If LUKS, wipe header IMMEDIATELY regardless of mode
     if is_luks_device "$dev"; then
-        echo "Detected LUKS volume on $dev"
+        echo "!!! CRITICAL: Detected LUKS volume on $dev - wiping header immediately !!!"
         wipe_luks_header "$dev"
-    else
-        echo "Not a LUKS volume, using ext4/generic approach on $dev"
-
-        # Try ext4 superblock destruction + random offsets
-        wipe_ext4_filesystem "$dev"
-
-        # Optional: Full wipe (comment out if time is critical)
-        # full_wipe_device "$dev"
     fi
+
+    # Then proceed with additional wiping based on mode
+    case "$WIPE_MODE" in
+        shred)
+            # Safest option: shred everything (even if LUKS header already wiped)
+            echo "Using shred mode (safest)"
+            if ! is_luks_device "$dev"; then
+                # Only shred non-LUKS devices (LUKS already done above)
+                shred_device "$dev"
+            else
+                echo "LUKS header already wiped, skipping redundant shred"
+            fi
+            ;;
+
+        full)
+            # Full wipe after targeted operations
+            echo "Using full mode (thorough)"
+            if ! is_luks_device "$dev"; then
+                # Only do ext4 approach for non-LUKS
+                echo "Not a LUKS volume, using ext4/generic approach on $dev"
+                wipe_ext4_filesystem "$dev"
+            fi
+            # Then do full wipe for extra thoroughness
+            full_wipe_device "$dev"
+            ;;
+
+        fast|*)
+            # Fast mode: targeted approach only
+            echo "Using fast mode (LUKS/ext4 targeted)"
+            if ! is_luks_device "$dev"; then
+                # Only do ext4 approach for non-LUKS
+                echo "Not a LUKS volume, using ext4/generic approach on $dev"
+                wipe_ext4_filesystem "$dev"
+            else
+                echo "LUKS header already wiped"
+            fi
+            ;;
+    esac
 
     echo "Device $dev processing complete"
 done
