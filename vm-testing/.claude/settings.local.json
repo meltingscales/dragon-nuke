@@ -14,7 +14,10 @@
       "Read(//home/melty/VirtualBox VMs/**)",
       "Bash(/home/melty/Git/dragon-nuke/post-mortem/inspect-vdi.sh \"/home/melty/VirtualBox VMs/dragon-nuke-ubuntu-1/ubuntu-jammy-22.04-cloudimg.vmdk\")",
       "Bash(/home/melty/Git/dragon-nuke/post-mortem/verify-nuke.sh \"/home/melty/VirtualBox VMs/dragon-nuke-fedora-1/fedora-39-amd64-disk001.vmdk\")",
-      "Bash(/home/melty/Git/dragon-nuke/post-mortem/verify-nuke.sh \"/home/melty/VirtualBox VMs/dragon-nuke-arch-2/generic-arch-virtualbox-x64-disk001.vmdk\")"
+      "Bash(/home/melty/Git/dragon-nuke/post-mortem/verify-nuke.sh \"/home/melty/VirtualBox VMs/dragon-nuke-arch-2/generic-arch-virtualbox-x64-disk001.vmdk\")",
+      "Bash(VBoxManage --version:*)",
+      "Bash(lsmod:*)",
+      "Bash(pacman:*)"
     ],
     "deny": [],
     "ask": []
